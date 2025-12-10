@@ -88,6 +88,13 @@ async function sendLineNotification(report) {
         return;
     }
 
+    // グループIDの確認
+    const groupId = process.env.LINE_GROUP_ID;
+    if (!groupId) {
+        console.log('LINE_GROUP_ID not set, skipping notification');
+        return;
+    }
+
     const employeeNames = report.employees.join('、');
     const message = `📝 残業報告が届きました\n\n` +
         `📅 日付: ${report.date}\n` +
@@ -96,15 +103,14 @@ async function sendLineNotification(report) {
         `🕐 時間: ${report.hours}h\n\n` +
         `報告時刻: ${new Date(report.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
 
-    // ブロードキャスト（全グループに送信）
-    // 注: 本番では特定のグループIDに送信することを推奨
+    // 特定のグループに送信
     try {
-        await client.broadcast({
+        await client.pushMessage(groupId, {
             type: 'text',
             text: message
         });
+        console.log('LINE notification sent to group:', groupId);
     } catch (error) {
-        // Broadcast APIが使えない場合はスキップ
-        console.log('Broadcast not available, notification skipped');
+        console.error('Failed to send LINE notification:', error);
     }
 }
