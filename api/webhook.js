@@ -37,6 +37,14 @@ module.exports = async (req, res) => {
             return res.status(200).json({ message: 'No events' });
         }
 
+        // デバッグ用：全イベントをログ出力
+        events.forEach((event, index) => {
+            console.log(`Event ${index}:`, JSON.stringify(event, null, 2));
+            if (event.source && event.source.groupId) {
+                console.log('🎯 GROUP_ID:', event.source.groupId);
+            }
+        });
+
         // 各イベントを処理
         await Promise.all(events.map(handleEvent));
 
