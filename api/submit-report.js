@@ -8,11 +8,14 @@ const kv = new Redis({
     token: process.env.KV_REST_API_TOKEN,
 });
 
-// LINE Botクライアント設定
-const client = new Client({
-    channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
-    channelSecret: process.env.LINE_CHANNEL_SECRET || ''
-});
+// LINE Botクライアント設定（オプショナル）
+let client = null;
+if (process.env.LINE_CHANNEL_ACCESS_TOKEN && process.env.LINE_CHANNEL_SECRET) {
+    client = new Client({
+        channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
+        channelSecret: process.env.LINE_CHANNEL_SECRET
+    });
+}
 
 module.exports = async (req, res) => {
     // CORSヘッダー
@@ -80,8 +83,8 @@ module.exports = async (req, res) => {
 
 // LINE通知送信
 async function sendLineNotification(report) {
-    if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) {
-        console.log('LINE_CHANNEL_ACCESS_TOKEN not set, skipping notification');
+    if (!client) {
+        console.log('LINE Bot not configured, skipping notification');
         return;
     }
 

@@ -7,13 +7,16 @@ const kv = new Redis({
     token: process.env.KV_REST_API_TOKEN,
 });
 
-// LINE Bot設定
+// LINE Bot設定（オプショナル）
 const config = {
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
     channelSecret: process.env.LINE_CHANNEL_SECRET || ''
 };
 
-const client = new Client(config);
+let client = null;
+if (process.env.LINE_CHANNEL_ACCESS_TOKEN && process.env.LINE_CHANNEL_SECRET) {
+    client = new Client(config);
+}
 
 module.exports = async (req, res) => {
     if (req.method !== 'POST') {
