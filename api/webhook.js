@@ -140,7 +140,12 @@ async function handleListCommand(event) {
         });
 
         // メッセージ整形
-        const message = formatSummaryMessage(currentMonth, employeeSummary, reports.length);
+        let message = formatSummaryMessage(currentMonth, employeeSummary, reports.length);
+
+        // グループIDを追加（デバッグ用）
+        if (event.source && event.source.type === 'group' && event.source.groupId) {
+            message += '\n\n━━━━━━━━━━━━━━━\n🆔 Group ID:\n' + event.source.groupId;
+        }
 
         return client.replyMessage(event.replyToken, {
             type: 'text',
