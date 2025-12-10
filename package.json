@@ -1,0 +1,26 @@
+{
+  "name": "overtime-report-bot",
+  "version": "1.0.0",
+  "description": "LINE Bot秘書 & CBO監査システム - 残業報告管理",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "vercel build",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "line-bot",
+    "overtime",
+    "attendance"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@line/bot-sdk": "^9.3.0",
+    "@vercel/kv": "^3.0.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^37.0.0"
+  }
+}
