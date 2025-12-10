@@ -18,9 +18,5 @@
             "src": "/(.*)",
             "dest": "/public/$1"
         }
-    ],
-    "env": {
-        "LINE_CHANNEL_ACCESS_TOKEN": "@line_channel_access_token",
-        "LINE_CHANNEL_SECRET": "@line_channel_secret"
-    }
+    ]
 }
