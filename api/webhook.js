@@ -50,6 +50,32 @@ module.exports = async (req, res) => {
 
 // イベント処理
 async function handleEvent(event) {
+    // グループ参加イベント
+    if (event.type === 'join') {
+        console.log('Bot joined group:', JSON.stringify(event.source));
+
+        if (!client) {
+            return null;
+        }
+
+        // グループIDをログに出力
+        if (event.source.type === 'group') {
+            console.log('GROUP_ID:', event.source.groupId);
+
+            // 参加メッセージを送信
+            try {
+                await client.replyMessage(event.replyToken, {
+                    type: 'text',
+                    text: '残業報告Botが参加しました！\n\nフォームから報告を送信すると、このグループに通知されます。\n\n「一覧」と送信すると、今月の報告を確認できます。'
+                });
+            } catch (error) {
+                console.error('Failed to send join message:', error);
+            }
+        }
+
+        return null;
+    }
+
     // テキストメッセージのみ処理
     if (event.type !== 'message' || event.message.type !== 'text') {
         return null;
