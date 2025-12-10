@@ -1,5 +1,11 @@
 const { Client, middleware } = require('@line/bot-sdk');
-const { kv } = require('@vercel/kv');
+const { Redis } = require('@upstash/redis');
+
+// Upstash Redis client
+const kv = new Redis({
+    url: process.env.KV_REST_API_URL,
+    token: process.env.KV_REST_API_TOKEN,
+});
 
 // LINE Bot設定
 const config = {

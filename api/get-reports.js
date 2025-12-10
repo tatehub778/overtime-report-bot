@@ -1,4 +1,10 @@
-const { kv } = require('@vercel/kv');
+const { Redis } = require('@upstash/redis');
+
+// Upstash Redis client
+const kv = new Redis({
+    url: process.env.KV_REST_API_URL,
+    token: process.env.KV_REST_API_TOKEN,
+});
 
 module.exports = async (req, res) => {
     // CORSヘッダー

@@ -1,6 +1,12 @@
-const { kv } = require('@vercel/kv');
+const { Redis } = require('@upstash/redis');
 const { Client } = require('@line/bot-sdk');
 const { v4: uuidv4 } = require('uuid');
+
+// Upstash Redis client
+const kv = new Redis({
+    url: process.env.KV_REST_API_URL,
+    token: process.env.KV_REST_API_TOKEN,
+});
 
 // LINE Botクライアント設定
 const client = new Client({
