@@ -146,7 +146,8 @@ async function getEmployeesMap() {
             normalizeEmployeeName(e.cboName),
             {
                 index,
-                department: e.department || 'unknown'
+                department: e.department || 'unknown',
+                active: e.active !== false
             }
         ]))
     };
