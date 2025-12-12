@@ -91,8 +91,8 @@ async function checkExistingData() {
                 verificationData = result.verification;
                 displayVerificationResult(verificationData, true);
 
-                // アップロードセクションを隠す（結果がある場合）
-                document.getElementById('upload-section').style.display = 'none';
+                // アップロードセクションは隠さない（更新用）
+                // document.getElementById('upload-section').style.display = 'none';
             } else {
                 // データがない場合はアップロード画面に戻る（月変更時など）
                 resetPage(false);
@@ -331,7 +331,12 @@ function displayVerificationResult(data, fromCache = false) {
 
     // 結果セクションを表示
     resultSection.style.display = 'block';
-    resultSection.scrollIntoView({ behavior: 'smooth' });
+
+    // データがキャッシュからの場合、あるいは新規検証完了時に結果へスクロール
+    // ただし、アップロードエリアが上にあるので、少しディレイを入れてスクロールすると親切かも
+    setTimeout(() => {
+        resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
 }
 
 // キャッシュステータス表示
