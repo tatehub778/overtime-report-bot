@@ -312,6 +312,12 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
         const metaA = employeesRef && employeesRef.map.has(a) ? employeesRef.map.get(a) : { index: 9999, department: 'unknown' };
         const metaB = employeesRef && employeesRef.map.has(b) ? employeesRef.map.get(b) : { index: 9999, department: 'unknown' };
 
+        // Debug log (first 5 comparisons only to avoid spam)
+        if (Math.random() < 0.05) {
+            console.log(`Comparing ${a} vs ${b}:`,
+                `Dept: ${metaA.department}(${metaA.index}) vs ${metaB.department}(${metaB.index})`);
+        }
+
         // 1. 所属でソート (factory -> management -> others)
         const deptOrder = { 'factory': 1, 'management': 2, 'unknown': 3 };
         const deptA = deptOrder[metaA.department] || 3;
