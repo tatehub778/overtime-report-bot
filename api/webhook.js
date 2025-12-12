@@ -91,19 +91,38 @@ async function handleEvent(event) {
 
     const messageText = event.message.text.trim();
 
-    // 「一覧」コマンド
-    if (messageText === '一覧' || messageText === 'いちらん') {
-        return await handleListCommand(event);
+    // 「一覧」コマンド（月指定も対応）
+    // 例: "一覧", "一覧 11月", "一覧 2024-11"
+    if (messageText === '一覧' || messageText === 'いちらん' || messageText.startsWith('一覧 ') || messageText.startsWith('いちらん ')) {
+        const parts = messageText.split(/\s+/);
+        let month = null;
+
+        if (parts.length > 1) {
+            const monthParam = parts[1];
+            // "11月" 形式
+            if (monthParam.endsWith('月')) {
+                const monthNum = monthParam.replace('月', '').padStart(2, '0');
+                const currentYear = new Date().getFullYear();
+                month = `${currentYear}-${monthNum}`;
+            }
+            // "2024-11" 形式
+            else if (/^\d{4}-\d{1,2}$/.test(monthParam)) {
+                const [year, mon] = monthParam.split('-');
+                month = `${year}-${mon.padStart(2, '0')}`;
+            }
+        }
+
+        return await handleListCommand(event, month);
     }
 
     return null;
 }
 
 // 一覧コマンド処理
-async function handleListCommand(event) {
+async function handleListCommand(event, targetMonth = null) {
     try {
-        // 今月のデータを取得
-        const currentMonth = new Date().toISOString().substring(0, 7);
+        // 指定された月、または今月のデータを取得
+        const currentMonth = targetMonth || new Date().toISOString().substring(0, 7);
         const monthReportsKey = `reports:${currentMonth}`;
         const reportIds = await kv.smembers(monthReportsKey);
 
