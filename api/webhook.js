@@ -108,7 +108,7 @@ async function handleListCommand(event) {
         const reportIds = await kv.smembers(monthReportsKey);
 
         if (!reportIds || reportIds.length === 0) {
-            return client.replyMessage(event.replyToken, {
+            return await client.replyMessage(event.replyToken, {
                 type: 'text',
                 text: `📊 ${currentMonth.replace('-', '/')}月度 残業・夜勤状況\n\n報告がまだありません。`
             });
@@ -147,14 +147,14 @@ async function handleListCommand(event) {
             message += '\n\n━━━━━━━━━━━━━━━\n🆔 Group ID:\n' + event.source.groupId;
         }
 
-        return client.replyMessage(event.replyToken, {
+        return await client.replyMessage(event.replyToken, {
             type: 'text',
             text: message
         });
 
     } catch (error) {
         console.error('List command error:', error);
-        return client.replyMessage(event.replyToken, {
+        return await client.replyMessage(event.replyToken, {
             type: 'text',
             text: 'エラーが発生しました。もう一度お試しください。'
         });

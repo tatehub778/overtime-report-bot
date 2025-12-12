@@ -106,7 +106,7 @@ function addCategoryRow(employeeName, container) {
             <option value="工場残業">工場残業</option>
             <option value="現場残業">現場残業</option>
         </select>
-        <input type="number" class="hours-input" placeholder="時間" min="0.5" max="24" step="0.5" required>
+        <input type="number" class="hours-input" placeholder="時間" min="0.25" max="24" step="0.25" required>
         <span class="hours-unit">時間</span>
         <button type="button" class="remove-row-btn" title="削除">×</button>
     `;
