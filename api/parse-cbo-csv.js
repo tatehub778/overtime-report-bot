@@ -147,9 +147,11 @@ function parseLine(line, lineNumber) {
     const early = parseHours(earlyStr);
     const holiday = parseHours(holidayStr);
 
-    // システム報告では、残業(h) + 早出(h) + 休出(h) の合計で報告される
-    // CBOのデータもこれに合わせて計算
-    const total = overtime + early + holiday;
+    // 休日出勤がある場合は、作業(h)_所定 + 残業(h) + 早出(h)
+    // それ以外は、残業(h) + 早出(h) + 休出(h)
+    const total = holiday > 0
+        ? regularWork + overtime + early
+        : overtime + early + holiday;
 
     // 時間が全て0の場合はスキップ
     if (total === 0) {
