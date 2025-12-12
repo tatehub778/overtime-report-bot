@@ -162,15 +162,18 @@ async function handleListCommand(event) {
 }
 
 // サマリーメッセージ整形
-function formatSummaryMessage(month, employeeSummary, totalReports) {
+async function formatSummaryMessage(month, employeeSummary, totalReports) {
     const [year, monthNum] = month.split('-');
     const today = new Date().getDate();
 
     let message = `📊 ${monthNum}月度 残業・夜勤状況（${monthNum}/${today} 現在）\n\n`;
 
+    // 在籍者データを取得
+    const employees = await getActiveEmployees();
+
     // 工場チームと管理チームに分類
-    const factoryTeam = ['齋藤 吉貴', '高橋 育子', '鈴木 亮介', '藤山 史子', '石井 僚', '田中 祐太', '照屋 潤', '渡辺 大輔'];
-    const managementTeam = ['杉村 大河', '川﨑 敬希', '岸本 健太郎', '岩本 和也', '山口 康成', '小関 優', '坂本 正紀', '國岡 祐介', '唐木田 洸太', '今枝 時人', '仁平 智道', '二石 真治'];
+    const factoryTeam = employees.filter(e => e.department === 'factory').map(e => e.name);
+    const managementTeam = employees.filter(e => e.department === 'management').map(e => e.name);
 
     // 工場チーム
     message += '■工場\n';
@@ -211,4 +214,28 @@ function formatSummaryMessage(month, employeeSummary, totalReports) {
     message += `合計: ${totalReports}件の報告`;
 
     return message;
+}
+
+// 在籍者取得ヘルパー関数
+async function getActiveEmployees() {
+    try {
+        const employeeIds = await kv.smembers('employees:active') || [];
+        const employees = [];
+
+        for (const id of employeeIds) {
+            const employeeData = await kv.get(`employee:${id}`);
+            if (employeeData) {
+                const employee = typeof employeeData === 'string'
+                    ? JSON.parse(employeeData)
+                    : employeeData;
+                employees.push(employee);
+            }
+        }
+
+        return employees;
+    } catch (error) {
+        console.error('Error fetching employees:', error);
+        // エラー時は空配列を返す
+        return [];
+    }
 }

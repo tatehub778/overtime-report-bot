@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBO CSV 検証 - 残業報告システム</title>
+    <link rel="stylesheet" href="cbo-verify.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 CBO CSV 検証</h1>
+            <p class="subtitle">CBOの勤務記録とシステムの残業報告を突合します</p>
+            <a href="admin.html" class="back-link">← 管理画面に戻る</a>
+        </header>
+
+        <!-- ステップ1: CSVアップロード -->
+        <section id="upload-section" class="section">
+            <h2>ステップ 1: CSV アップロード</h2>
+
+            <div class="month-selector">
+                <label for="target-month">対象月:</label>
+                <input type="month" id="target-month" required>
+            </div>
+
+            <div class="upload-area" id="upload-area">
+                <div class="upload-icon">📁</div>
+                <p class="upload-text">CSVファイルをドラッグ&ドロップ</p>
+                <p class="upload-subtext">または</p>
+                <button class="browse-btn" id="browse-btn">ファイルを選択</button>
+                <input type="file" id="file-input" accept=".csv" hidden>
+            </div>
+
+            <div class="file-info" id="file-info" style="display: none;">
+                <p><strong>選択ファイル:</strong> <span id="file-name"></span></p>
+                <p><strong>サイズ:</strong> <span id="file-size"></span></p>
+                <button class="upload-btn" id="upload-btn">アップロード開始</button>
+            </div>
+
+            <div class="progress" id="progress" style="display: none;">
+                <div class="progress-bar" id="progress-bar"></div>
+                <p class="progress-text" id="progress-text">処理中...</p>
+            </div>
+
+            <div class="upload-result" id="upload-result" style="display: none;">
+                <div class="result-icon">✅</div>
+                <h3>アップロード完了</h3>
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-label">総レコード数:</span>
+                        <span class="stat-value" id="total-records">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">従業員数:</span>
+                        <span class="stat-value" id="total-employees">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">期間:</span>
+                        <span class="stat-value" id="date-range">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">総時間:</span>
+                        <span class="stat-value" id="total-hours">-</span>
+                    </div>
+                </div>
+                <button class="verify-btn" id="verify-btn">検証を開始</button>
+            </div>
+        </section>
+
+        <!-- ステップ2: 検証結果 -->
+        <section id="result-section" class="section" style="display: none;">
+            <h2>ステップ 2: 検証結果</h2>
+
+            <div class="summary-cards">
+                <div class="summary-card card-success">
+                    <div class="card-icon">✅</div>
+                    <div class="card-content">
+                        <h3>一致</h3>
+                        <p class="card-value" id="matches-count">0</p>
+                    </div>
+                </div>
+
+                <div class="summary-card card-warning">
+                    <div class="card-icon">⚠️</div>
+                    <div class="card-content">
+                        <h3>未報告</h3>
+                        <p class="card-value" id="missing-count">0</p>
+                        <p class="card-desc">CBOにあり、システムになし</p>
+                    </div>
+                </div>
+
+                <div class="summary-card card-danger">
+                    <div class="card-icon">❌</div>
+                    <div class="card-content">
+                        <h3>過剰報告</h3>
+                        <p class="card-value" id="excess-count">0</p>
+                        <p class="card-desc">システムにあり、CBOになし</p>
+                    </div>
+                </div>
+
+                <div class="summary-card card-info">
+                    <div class="card-icon">🔄</div>
+                    <div class="card-content">
+                        <h3>時間ずれ</h3>
+                        <p class="card-value" id="discrepancy-count">0</p>
+                        <p class="card-desc">時間に差異あり</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 詳細表示 -->
+            <div class="details">
+                <!-- 未報告 -->
+                <div class="detail-section" id="missing-section">
+                    <h3 class="detail-title">⚠️ 未報告（CBOにあり、システムになし）</h3>
+                    <div class="detail-content" id="missing-list"></div>
+                </div>
+
+                <!-- 過剰報告 -->
+                <div class="detail-section" id="excess-section">
+                    <h3 class="detail-title">❌ 過剰報告（システムにあり、CBOになし）</h3>
+                    <div class="detail-content" id="excess-list"></div>
+                </div>
+
+                <!-- 時間ずれ -->
+                <div class="detail-section" id="discrepancy-section">
+                    <h3 class="detail-title">🔄 時間ずれ</h3>
+                    <div class="detail-content" id="discrepancy-list"></div>
+                </div>
+
+                <!-- 一致 -->
+                <div class="detail-section" id="matches-section">
+                    <h3 class="detail-title">✅ 一致</h3>
+                    <div class="detail-content" id="matches-list"></div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="action-btn" id="export-btn">CSV出力</button>
+                <button class="action-btn secondary" id="new-verify-btn">新規検証</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="cbo-verify.js"></script>
+</body>
+
+</html>

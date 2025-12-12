@@ -1,24 +1,26 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#6366f1">
     <meta name="description" content="残業報告システム - LINE Bot秘書">
-    
+
     <title>残業報告 | LINE Bot秘書</title>
-    
+
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
     <link rel="apple-touch-icon" href="/icon-192.png">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
     <div class="container">
         <header class="header">
@@ -39,99 +41,23 @@
                         <span class="label-icon">👥</span>
                         報告者（複数選択可）
                     </label>
-                    
+
+
                     <div class="team-section">
                         <h3 class="team-title">工場チーム</h3>
-                        <div class="checkbox-grid">
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="齋藤 吉貴">
-                                <span class="checkbox-text">齋藤 吉貴</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="高橋 育子">
-                                <span class="checkbox-text">高橋 育子</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="鈴木 亮介">
-                                <span class="checkbox-text">鈴木 亮介</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="藤山 史子">
-                                <span class="checkbox-text">藤山 史子</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="石井 僚">
-                                <span class="checkbox-text">石井 僚</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="田中 祐太">
-                                <span class="checkbox-text">田中 祐太</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="照屋 潤">
-                                <span class="checkbox-text">照屋 潤</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="渡辺 大輔">
-                                <span class="checkbox-text">渡辺 大輔</span>
-                            </label>
+                        <div class="checkbox-grid" id="factoryEmployees">
+                            <!-- 動的に読み込まれます -->
                         </div>
                     </div>
 
                     <div class="team-section">
                         <h3 class="team-title">管理チーム</h3>
-                        <div class="checkbox-grid">
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="杉村 大河">
-                                <span class="checkbox-text">杉村 大河</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="川﨑 敬希">
-                                <span class="checkbox-text">川﨑 敬希</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="岸本 健太郎">
-                                <span class="checkbox-text">岸本 健太郎</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="岩本 和也">
-                                <span class="checkbox-text">岩本 和也</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="山口 康成">
-                                <span class="checkbox-text">山口 康成</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="小関 優">
-                                <span class="checkbox-text">小関 優</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="坂本 正紀">
-                                <span class="checkbox-text">坂本 正紀</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="國岡 祐介">
-                                <span class="checkbox-text">國岡 祐介</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="唐木田 洸太">
-                                <span class="checkbox-text">唐木田 洸太</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="今枝 時人">
-                                <span class="checkbox-text">今枝 時人</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="仁平 智道">
-                                <span class="checkbox-text">仁平 智道</span>
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="employee" value="二石 真治">
-                                <span class="checkbox-text">二石 真治</span>
-                            </label>
+                        <div class="checkbox-grid" id="managementEmployees">
+                            <!-- 動的に読み込まれます -->
                         </div>
                     </div>
                 </div>
+
 
                 <!-- 日付選択 -->
                 <div class="form-section">
@@ -139,13 +65,7 @@
                         <span class="label-icon">📅</span>
                         日付
                     </label>
-                    <input 
-                        type="date" 
-                        id="date" 
-                        name="date" 
-                        class="input-field"
-                        required
-                    >
+                    <input type="date" id="date" name="date" class="input-field" required>
                 </div>
 
                 <!-- 残業種別 -->
@@ -171,17 +91,8 @@
                         <span class="label-icon">🕐</span>
                         時間（h）
                     </label>
-                    <input 
-                        type="number" 
-                        id="hours" 
-                        name="hours" 
-                        class="input-field"
-                        min="0.5"
-                        max="24"
-                        step="0.5"
-                        placeholder="例: 2.5"
-                        required
-                    >
+                    <input type="number" id="hours" name="hours" class="input-field" min="0.5" max="24" step="0.5"
+                        placeholder="例: 2.5" required>
                     <p class="input-hint">0.5時間単位で入力してください</p>
                 </div>
 
@@ -207,9 +118,14 @@
 
         <footer class="footer">
             <p>© 2025 LINE Bot秘書システム</p>
+            <p style="margin-top: 10px; font-size: 0.9rem;">
+                <a href="admin.html" style="color: #6366f1; text-decoration: none;">👥 管理画面</a> |
+                <a href="cbo-verify.html" style="color: #6366f1; text-decoration: none;">📊 CBO検証</a>
+            </p>
         </footer>
     </div>
 
     <script src="/app.js"></script>
 </body>
+
 </html>
