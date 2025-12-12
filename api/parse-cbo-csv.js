@@ -119,6 +119,7 @@ function parseLine(line, lineNumber) {
 
     const date = columns[0].trim();
     const employeeRaw = columns[2].trim();
+    const regularWorkStr = columns[5].trim(); // 作業(h)_所定
     const overtimeStr = columns[7].trim();
     const earlyStr = columns[8].trim();
     const holidayStr = columns[9].trim();
@@ -137,10 +138,16 @@ function parseLine(line, lineNumber) {
     const employee = normalizeEmployeeName(employeeRaw);
 
     // 時間をパース（"-" は 0 として扱う）
+    const regularWork = parseHours(regularWorkStr);
     const overtime = parseHours(overtimeStr);
     const early = parseHours(earlyStr);
     const holiday = parseHours(holidayStr);
-    const total = overtime + early + holiday;
+
+    // 休日出勤がある場合は、作業(h)_所定 + 残業(h) + 早出(h)
+    // それ以外は、残業(h) + 早出(h) + 休出(h)
+    const total = holiday > 0
+        ? regularWork + overtime + early
+        : overtime + early + holiday;
 
     // 時間が全て0の場合はスキップ
     if (total === 0) {
@@ -153,6 +160,7 @@ function parseLine(line, lineNumber) {
         overtime,
         early,
         holiday,
+        regular_work: regularWork,
         total: parseFloat(total.toFixed(2))
     };
 }
