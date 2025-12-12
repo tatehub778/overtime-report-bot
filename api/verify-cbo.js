@@ -18,13 +18,26 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { month } = req.body;
+        const { month, force_refresh } = req.body;
 
         if (!month) {
             return res.status(400).json({
                 error: 'Month is required',
                 details: 'Please provide month in YYYY-MM format'
             });
+        }
+
+        // 強制再検証でない場合、キャッシュをチェック
+        if (!force_refresh) {
+            const cachedResult = await kv.get(`verification_result:${month}`);
+            if (cachedResult) {
+                console.log('Returning cached verification result for', month);
+                return res.status(200).json({
+                    success: true,
+                    verification: cachedResult,
+                    from_cache: true
+                });
+            }
         }
 
         // CBOデータを取得
@@ -56,9 +69,14 @@ export default async function handler(req, res) {
             sample_system_report_2: systemReports.length > 1 ? systemReports[1] : null
         };
 
+        // 検証結果をキャッシュに保存
+        await kv.set(`verification_result:${month}`, verification);
+        console.log('Verification result cached for', month);
+
         return res.status(200).json({
             success: true,
-            verification
+            verification,
+            from_cache: false
         });
 
     } catch (error) {

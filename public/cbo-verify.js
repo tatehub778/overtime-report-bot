@@ -198,10 +198,10 @@ function displayUploadResult(stats) {
 }
 
 // 検証実行
-async function handleVerify() {
+async function handleVerify(forceRefresh = false) {
     try {
         verifyBtn.disabled = true;
-        verifyBtn.textContent = '検証中...';
+        verifyBtn.textContent = forceRefresh ? '再検証中...' : '検証中...';
 
         const response = await fetch(`${API_BASE}/verify-cbo`, {
             method: 'POST',
@@ -209,7 +209,8 @@ async function handleVerify() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                month: targetMonth.value
+                month: targetMonth.value,
+                force_refresh: forceRefresh
             })
         });
 
@@ -222,7 +223,7 @@ async function handleVerify() {
         verificationData = result.verification;
 
         // 結果を表示
-        displayVerificationResult(verificationData);
+        displayVerificationResult(verificationData, result.from_cache);
 
     } catch (error) {
         console.error('Verification error:', error);
@@ -232,13 +233,21 @@ async function handleVerify() {
     }
 }
 
+// 再検証実行
+function handleReVerify() {
+    handleVerify(true);
+}
+
 // 検証結果表示
-function displayVerificationResult(data) {
+function displayVerificationResult(data, fromCache = false) {
     // サマリーカード更新
     document.getElementById('matches-count').textContent = data.summary.matches;
     document.getElementById('missing-count').textContent = data.summary.missing_reports;
     document.getElementById('excess-count').textContent = data.summary.excess_reports;
     document.getElementById('discrepancy-count').textContent = data.summary.time_discrepancies;
+
+    // キャッシュステータス表示
+    displayCacheStatus(fromCache, data.verified_at);
 
     // 従業員ごとの表示に切り替え
     if (data.by_employee) {
@@ -259,6 +268,69 @@ function displayVerificationResult(data) {
     // 結果セクションを表示
     resultSection.style.display = 'block';
     resultSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// キャッシュステータス表示
+function displayCacheStatus(fromCache, verifiedAt) {
+    let statusSection = resultSection.querySelector('.cache-status-section');
+    if (!statusSection) {
+        statusSection = document.createElement('div');
+        statusSection.className = 'cache-status-section';
+        resultSection.insertBefore(statusSection, resultSection.firstChild);
+    }
+
+    const date = new Date(verifiedAt);
+    const dateStr = date.toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    statusSection.innerHTML = `
+        <div style="
+            background: ${fromCache ? '#EFF6FF' : '#F0FDF4'};
+            border: 1px solid ${fromCache ? '#BFDBFE' : '#BBF7D0'};
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        ">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 20px;">${fromCache ? '💾' : '✨'}</span>
+                <div>
+                    <div style="font-weight: 600; color: #1F2937;">
+                        ${fromCache ? '保存済みの検証結果を表示中' : '検証完了・結果を保存しました'}
+                    </div>
+                    <div style="font-size: 13px; color: #6B7280;">
+                        検証日時: ${dateStr}
+                    </div>
+                </div>
+            </div>
+            ${fromCache ? `
+                <button 
+                    onclick="handleReVerify()"
+                    style="
+                        background: #3B82F6;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        cursor: pointer;
+                        font-weight: 500;
+                    "
+                    onmouseover="this.style.background='#2563EB'"
+                    onmouseout="this.style.background='#3B82F6'"
+                >
+                    🔄 再検証
+                </button>
+            ` : ''}
+        </div>
+    `;
 }
 
 // 従業員ごとの表示
