@@ -140,7 +140,7 @@ async function handleListCommand(event) {
         });
 
         // メッセージ整形
-        let message = formatSummaryMessage(currentMonth, employeeSummary, reports.length);
+        let message = await formatSummaryMessage(currentMonth, employeeSummary, reports.length);
 
         // グループIDを追加（デバッグ用）
         if (event.source && event.source.type === 'group' && event.source.groupId) {
