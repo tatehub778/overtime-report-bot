@@ -61,18 +61,21 @@ export default async function handler(req, res) {
  * 指定月のシステム報告を取得
  */
 async function getSystemReports(month) {
-    const [year, monthNum] = month.split('-');
-    const startDate = new Date(`${year}-${monthNum}-01`);
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + 1);
-    endDate.setDate(0); // 月末
-
     const reports = [];
-    const keys = await kv.keys('overtime_report:*');
 
-    for (const key of keys) {
-        const report = await kv.get(key);
-        if (report && report.date >= formatDate(startDate) && report.date <= formatDate(endDate)) {
+    // 月別インデックスから取得
+    const monthReportsKey = `reports:${month}`;
+    const reportIds = await kv.smembers(monthReportsKey);
+
+    if (!reportIds || reportIds.length === 0) {
+        return [];
+    }
+
+    // 各レポートを取得
+    for (const reportId of reportIds) {
+        const reportData = await kv.get(`report:${reportId}`);
+        if (reportData) {
+            const report = typeof reportData === 'string' ? JSON.parse(reportData) : reportData;
             reports.push(report);
         }
     }
@@ -205,5 +208,7 @@ function formatDate(date) {
  * システムの日付形式 (YYYY-MM-DD) を CBO形式 (YYYY/MM/DD) に変換
  */
 function formatDateFromReport(dateStr) {
+    if (!dateStr) return '';
+    // YYYY-MM-DD → YYYY/MM/DD
     return dateStr.replace(/-/g, '/');
 }
