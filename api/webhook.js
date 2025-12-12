@@ -91,6 +91,30 @@ async function handleEvent(event) {
 
     const messageText = event.message.text.trim();
 
+    // グループID取得コマンド
+    if (messageText === 'グループID' || messageText === 'ID教えて' || messageText === 'id' || messageText === 'ID') {
+        if (!client) return null;
+
+        let replyText = '';
+        if (event.source.type === 'group') {
+            replyText = `このグループのIDは:\n${event.source.groupId}\nです。`;
+        } else if (event.source.type === 'room') {
+            replyText = `このトークルームのIDは:\n${event.source.roomId}\nです。`;
+        } else {
+            replyText = `ここは個別のチャットです。\nあなたのユーザーIDは:\n${event.source.userId}\nです。`;
+        }
+
+        try {
+            await client.replyMessage(event.replyToken, {
+                type: 'text',
+                text: replyText
+            });
+        } catch (error) {
+            console.error('Failed to reply with ID:', error);
+        }
+        return null; // 処理終了
+    }
+
     // 「一覧」コマンド（月指定も対応）
     // 例: "一覧", "一覧 11月", "一覧 2024-11"
     if (messageText === '一覧' || messageText === 'いちらん' || messageText.startsWith('一覧 ') || messageText.startsWith('いちらん ')) {
