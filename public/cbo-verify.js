@@ -46,9 +46,9 @@ function init() {
 
 // ファイル選択
 function handleFileSelect(e) {
-    const file = e.target.files[0];
-    if (file) {
-        displayFileInfo(file);
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+        displayFileInfo(files);
     }
 }
 
@@ -69,19 +69,22 @@ function handleDrop(e) {
     e.preventDefault();
     uploadArea.classList.remove('drag-over');
 
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.csv')) {
-        displayFileInfo(file);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.csv'));
+    if (files.length > 0) {
+        displayFileInfo(files);
     } else {
         alert('CSVファイルを選択してください');
     }
 }
 
 // ファイル情報表示
-function displayFileInfo(file) {
-    selectedFile = file;
-    fileName.textContent = file.name;
-    fileSize.textContent = formatFileSize(file.size);
+function displayFileInfo(files) {
+    selectedFile = files;
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    fileName.textContent = files.length === 1
+        ? files[0].name
+        : `${files.length}個のファイル (${files.map(f => f.name).join(', ')})`;
+    fileSize.textContent = formatFileSize(totalSize);
     fileInfo.style.display = 'block';
     uploadArea.style.display = 'none';
 }
@@ -95,7 +98,7 @@ function formatFileSize(bytes) {
 
 // CSVアップロード
 async function handleUpload() {
-    if (!selectedFile) {
+    if (!selectedFile || (Array.isArray(selectedFile) && selectedFile.length === 0)) {
         alert('ファイルを選択してください');
         return;
     }
@@ -112,9 +115,29 @@ async function handleUpload() {
         progressBar.style.width = '20%';
         progressText.textContent = 'CSVを読み込み中...';
 
-        // CSVファイルを読み込み
-        const csvData = await readFileAsText(selectedFile);
-        progressBar.style.width = '40%';
+        // 複数ファイルの場合は配列、単一の場合は配列化
+        const files = Array.isArray(selectedFile) ? selectedFile : [selectedFile];
+        let combinedCSV = '';
+        let headerAdded = false;
+
+        // 各CSVを読み込んで統合
+        for (let i = 0; i < files.length; i++) {
+            const csvContent = await readFileAsText(files[i]);
+            const lines = csvContent.split('\n');
+
+            if (!headerAdded) {
+                // 最初のファイルはヘッダー込みで追加
+                combinedCSV = csvContent;
+                headerAdded = true;
+            } else {
+                // 2番目以降はヘッダーをスキップ
+                const dataLines = lines.slice(1).join('\n');
+                combinedCSV += '\n' + dataLines;
+            }
+
+            progressBar.style.width = `${20 + (20 * (i + 1) / files.length)}%`;
+        }
+
         progressText.textContent = 'データをパース中...';
 
         // APIにPOST
@@ -124,7 +147,7 @@ async function handleUpload() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                csvData,
+                csvData: combinedCSV,
                 month: targetMonth.value
             })
         });
