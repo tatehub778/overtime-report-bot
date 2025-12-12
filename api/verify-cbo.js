@@ -40,6 +40,12 @@ export default async function handler(req, res) {
         // システムの残業報告を取得
         const systemReports = await getSystemReports(month);
 
+        console.log('=== DEBUG: System Reports ===');
+        console.log('Total system reports:', systemReports.length);
+        if (systemReports.length > 0) {
+            console.log('Sample report:', JSON.stringify(systemReports[0], null, 2));
+        }
+
         // 突合を実行
         const verification = performVerification(cboData.records, systemReports, month);
 
@@ -114,6 +120,11 @@ function performVerification(cboRecords, systemReports, month) {
             }
         }
     }
+
+    console.log('=== DEBUG: System Map ===');
+    console.log('System map size:', systemMap.size);
+    const firstFew = Array.from(systemMap.entries()).slice(0, 3);
+    console.log('Sample system map entries:', JSON.stringify(firstFew, null, 2));
 
     // 差異を検出
     const missing = [];      // CBOにあるがシステムにない
