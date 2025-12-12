@@ -240,30 +240,113 @@ function displayVerificationResult(data) {
     document.getElementById('excess-count').textContent = data.summary.excess_reports;
     document.getElementById('discrepancy-count').textContent = data.summary.time_discrepancies;
 
-    // 詳細リスト表示
-    displayDetailList('missing-list', data.details.missing, 'missing');
-    displayDetailList('excess-list', data.details.excess, 'excess');
-    displayDetailList('discrepancy-list', data.details.discrepancies, 'discrepancy');
-    displayDetailList('matches-list', data.details.matches, 'match');
+    // 従業員ごとの表示に切り替え
+    if (data.by_employee) {
+        displayByEmployee(data.by_employee);
+    } else {
+        // フォールバック: 従来の表示
+        displayDetailList('missing-list', data.details.missing, 'missing');
+        displayDetailList('excess-list', data.details.excess, 'excess');
+        displayDetailList('discrepancy-list', data.details.discrepancies, 'discrepancy');
+        displayDetailList('matches-list', data.details.matches, 'match');
+    }
 
     // デバッグ情報表示
     if (data.debug) {
         displayDebugInfo(data.debug);
     }
 
-    // セクション表示順調整（問題があるものを上に）
+    // 結果セクションを表示
+    resultSection.style.display = 'block';
+    resultSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 従業員ごとの表示
+function displayByEmployee(byEmployee) {
+    // 既存のセクションを非表示
     const missingSec = document.getElementById('missing-section');
     const excessSec = document.getElementById('excess-section');
     const discrepancySec = document.getElementById('discrepancy-section');
     const matchesSec = document.getElementById('matches-section');
 
-    if (data.summary.missing_reports === 0) missingSec.style.display = 'none';
-    if (data.summary.excess_reports === 0) excessSec.style.display = 'none';
-    if (data.summary.time_discrepancies === 0) discrepancySec.style.display = 'none';
+    missingSec.style.display = 'none';
+    excessSec.style.display = 'none';
+    discrepancySec.style.display = 'none';
+    matchesSec.style.display = 'none';
 
-    // 結果セクションを表示
-    resultSection.style.display = 'block';
-    resultSection.scrollIntoView({ behavior: 'smooth' });
+    // 新しい表示領域を作成
+    let employeeSection = resultSection.querySelector('.employee-grouped-section');
+    if (!employeeSection) {
+        employeeSection = document.createElement('div');
+        employeeSection.className = 'employee-grouped-section';
+        resultSection.insertBefore(employeeSection, resultSection.querySelector('.debug-info') || resultSection.firstChild);
+    }
+
+    let html = '<h2 style="margin: 20px 0;">従業員別検証結果</h2>';
+
+    byEmployee.forEach(emp => {
+        const statusClass = emp.issues > 0 ? 'has-issues' : 'all-good';
+        html += `
+            <div class="employee-card ${statusClass}" style="
+                margin: 15px 0;
+                padding: 15px;
+                border-radius: 8px;
+                background: white;
+                border-left: 4px solid ${emp.issues > 0 ? '#EF4444' : '#10B981'};
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; font-size: 18px; color: #1F2937;">${emp.employee}</h3>
+                    <div style="display: flex; gap: 10px; font-size: 13px;">
+                        <span style="color: #10B981;">✅ ${emp.matches}件</span>
+                        ${emp.issues > 0 ? `<span style="color: #EF4444; font-weight: 600;">⚠️ ${emp.issues}件</span>` : ''}
+                    </div>
+                </div>
+                <div style="border-top: 1px solid #E5E7EB; padding-top: 10px;">
+        `;
+
+        emp.records.forEach(record => {
+            const date = record.date.substring(5).replace('/', '/'); // MM/DD
+            const statusColor = {
+                'match': '#10B981',
+                'discrepancy': '#F59E0B',
+                'excess': '#EF4444',
+                'missing': '#F59E0B'
+            }[record.status] || '#6B7280';
+
+            let statusText = '';
+            if (record.status === 'match') {
+                statusText = '一致';
+            } else if (record.status === 'discrepancy') {
+                statusText = `時間ずれ CBO: ${record.cbo_hours}h / システム: ${record.system_hours}h (差: ${record.difference > 0 ? '+' : ''}${record.difference}h)`;
+            } else if (record.status === 'excess') {
+                statusText = `過剰報告 CBO: ${record.cbo_hours}h / システム: ${record.system_hours}h`;
+            } else if (record.status === 'missing') {
+                statusText = `未報告 CBO: ${record.cbo_hours}h / システム: ${record.system_hours}h`;
+            }
+
+            html += `
+                <div style="
+                    padding: 8px 0;
+                    border-bottom: 1px dashed #E5E7EB;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                ">
+                    <span style="font-size: 20px;">${record.icon}</span>
+                    <span style="min-width: 50px; font-weight: 500; color: #6B7280;">${date}</span>
+                    <span style="color: ${statusColor}; flex: 1;">${statusText}</span>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+    });
+
+    employeeSection.innerHTML = html;
 }
 
 // デバッグ情報表示
