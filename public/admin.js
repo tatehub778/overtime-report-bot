@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 社員データ読み込み
 async function loadEmployees() {
     try {
-        const response = await fetch('/api/employees');
+        const response = await fetch(`/api/employees?t=${Date.now()}`);
         if (!response.ok) throw new Error('Failed to load employees');
 
         employees = await response.json();
