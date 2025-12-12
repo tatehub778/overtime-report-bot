@@ -36,7 +36,9 @@ module.exports = async (req, res) => {
         // PATCH /api/employees?id=xxx - 有効/無効トグル
         // PATCH /api/employees/reorder - 順序変更
         if (req.method === 'PATCH') {
-            if (req.url && req.url.includes('/reorder')) {
+            // URLからパス部分を取得
+            const url = new URL(req.url, `http://${req.headers.host}`);
+            if (url.pathname.includes('/reorder')) {
                 return await handleReorderEmployees(req, res);
             }
             return await handleToggleEmployee(req, res);
