@@ -345,7 +345,7 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
 
     // 従業員ごとにソート（日付順）
     const result = [];
-    employeeOrder.forEach(employee => {
+    sortedEmployees.forEach(employee => {
         if (employeeMap.has(employee)) {
             const records = employeeMap.get(employee).sort((a, b) => a.date.localeCompare(b.date));
             result.push({
