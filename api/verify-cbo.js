@@ -141,9 +141,9 @@ async function getEmployeesMap() {
 
     // 名前 → メタデータ（順序、所属）のマップ
     return {
-        list: employees.map(e => e.cboName),
+        list: employees.map(e => normalizeEmployeeName(e.cboName)),
         map: new Map(employees.map((e, index) => [
-            e.cboName,
+            normalizeEmployeeName(e.cboName),
             {
                 index,
                 department: e.department || 'unknown'
