@@ -33,8 +33,12 @@ module.exports = async (req, res) => {
             return await handleUpdateEmployee(req, res);
         }
 
-        // PATCH /api/employees - 有効/無効トグル
+        // PATCH /api/employees?id=xxx - 有効/無効トグル
+        // PATCH /api/employees/reorder - 順序変更
         if (req.method === 'PATCH') {
+            if (req.url && req.url.includes('/reorder')) {
+                return await handleReorderEmployees(req, res);
+            }
             return await handleToggleEmployee(req, res);
         }
 
@@ -83,8 +87,13 @@ async function handleGetEmployees(req, res) {
         }
     }
 
-    // 名前順にソート
-    employees.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+    // display_order順にソート（なければ名前順）
+    employees.sort((a, b) => {
+        if (a.display_order !== undefined && b.display_order !== undefined) {
+            return a.display_order - b.display_order;
+        }
+        return a.name.localeCompare(b.name, 'ja');
+    });
 
     return res.status(200).json(employees);
 }
@@ -109,12 +118,26 @@ async function handleCreateEmployee(req, res) {
     // 新規ID生成
     const id = `emp_${uuidv4().substring(0, 8)}`;
 
+    // 現在の最大display_orderを取得
+    const allIds = await kv.smembers('employees:all') || [];
+    let maxOrder = 0;
+    for (const existingId of allIds) {
+        const empData = await kv.get(`employee:${existingId}`);
+        if (empData) {
+            const emp = typeof empData === 'string' ? JSON.parse(empData) : empData;
+            if (emp.display_order !== undefined && emp.display_order > maxOrder) {
+                maxOrder = emp.display_order;
+            }
+        }
+    }
+
     const employee = {
         id,
         name,
         cboName,
         department,
         active: true,
+        display_order: maxOrder + 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
@@ -211,4 +234,35 @@ async function handleDeleteEmployee(req, res) {
     await kv.srem('employees:active', id);
 
     return res.status(200).json({ message: '削除しました' });
+}
+
+// 順序変更
+async function handleReorderEmployees(req, res) {
+    const { employeeIds } = req.body;
+
+    if (!employeeIds || !Array.isArray(employeeIds)) {
+        return res.status(400).json({ error: 'employeeIds配列が必要です' });
+    }
+
+    // 各従業員のdisplay_orderを更新
+    for (let i = 0; i < employeeIds.length; i++) {
+        const id = employeeIds[i];
+        const existingData = await kv.get(`employee:${id}`);
+
+        if (existingData) {
+            const existing = typeof existingData === 'string'
+                ? JSON.parse(existingData)
+                : existingData;
+
+            const updated = {
+                ...existing,
+                display_order: i,
+                updatedAt: new Date().toISOString()
+            };
+
+            await kv.set(`employee:${id}`, JSON.stringify(updated));
+        }
+    }
+
+    return res.status(200).json({ message: '順序を更新しました' });
 }
