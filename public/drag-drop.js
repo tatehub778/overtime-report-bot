@@ -95,10 +95,13 @@ async function saveEmployeeOrderFromContainer(container) {
     if (employeeIds.length === 0) return;
 
     try {
-        const response = await fetch('/api/employees/reorder', {
+        const response = await fetch('/api/employees', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ employeeIds })
+            body: JSON.stringify({
+                action: 'reorder',
+                employeeIds
+            })
         });
 
         if (!response.ok) {
