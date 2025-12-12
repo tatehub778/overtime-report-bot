@@ -395,6 +395,20 @@ function formatDate(date) {
 }
 
 /**
+ * 従業員名を正規化（番号を除去、空白を正規化）
+ * 例: "田中 祐太 023" → "田中 祐太"
+ */
+function normalizeEmployeeName(name) {
+    if (!name) return '';
+    // 末尾の番号を除去（3桁の数字）
+    let normalized = name.replace(/\s+\d{3}$/, '');
+    // 全角スペースを半角に統一
+    normalized = normalized.replace(/　/g, ' ');
+    // 連続する空白を1つに
+    normalized = normalized.replace(/\s+/g, ' ');
+    return normalized.trim();
+}
+/**
  * システムの日付形式 (YYYY-MM-DD) を CBO形式 (YYYY/MM/DD) に変換
  */
 function formatDateFromReport(dateStr) {
