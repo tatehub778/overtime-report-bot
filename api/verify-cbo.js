@@ -49,6 +49,13 @@ export default async function handler(req, res) {
         // 突合を実行
         const verification = performVerification(cboData.records, systemReports, month);
 
+        // デバッグ情報を追加
+        verification.debug = {
+            total_system_reports: systemReports.length,
+            sample_system_report: systemReports.length > 0 ? systemReports[0] : null,
+            sample_system_report_2: systemReports.length > 1 ? systemReports[1] : null
+        };
+
         return res.status(200).json({
             success: true,
             verification
@@ -102,28 +109,46 @@ function performVerification(cboRecords, systemReports, month) {
 
     // システム報告を従業員名+日付でマップ化
     const systemMap = new Map();
+
+    console.log('=== DEBUG: Building System Map ===');
+    console.log('Total reports to process:', systemReports.length);
+
     for (const report of systemReports) {
-        // 各従業員について
+        console.log('Processing report:', {
+            id: report.id,
+            date: report.date,
+            employees: report.employees,
+            category: report.category,
+            hours: report.hours
+        });
+
+        // 各従業員について（通常は1人）
         for (const employee of report.employees) {
             const key = `${employee}|${formatDateFromReport(report.date)}`;
 
             if (systemMap.has(key)) {
                 // 同じ日に複数報告がある場合は合計
-                systemMap.get(key).hours += report.hours;
+                const existing = systemMap.get(key);
+                existing.hours += report.hours;
+                existing.categories = existing.categories || [];
+                existing.categories.push({ category: report.category, hours: report.hours });
+                console.log(`  → Adding to existing: ${employee} on ${formatDateFromReport(report.date)}, new total: ${existing.hours}h`);
             } else {
                 systemMap.set(key, {
                     employee,
                     date: formatDateFromReport(report.date),
                     hours: report.hours,
-                    category: report.category
+                    category: report.category,
+                    categories: [{ category: report.category, hours: report.hours }]
                 });
+                console.log(`  → New entry: ${employee} on ${formatDateFromReport(report.date)}, ${report.hours}h`);
             }
         }
     }
 
-    console.log('=== DEBUG: System Map ===');
+    console.log('=== DEBUG: System Map Complete ===');
     console.log('System map size:', systemMap.size);
-    const firstFew = Array.from(systemMap.entries()).slice(0, 3);
+    const firstFew = Array.from(systemMap.entries()).slice(0, 5);
     console.log('Sample system map entries:', JSON.stringify(firstFew, null, 2));
 
     // 差異を検出
