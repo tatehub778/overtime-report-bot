@@ -217,6 +217,13 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
 
     // CBOレコードをチェック
     for (const [key, cboRecord] of cboMap) {
+        // 登録済みの社員かチェック（登録外は無視）
+        const normalizedName = normalizeEmployeeName(cboRecord.employee);
+        if (!employeesRef.map.has(normalizedName)) {
+            // console.log(`Skipping unregistered employee: ${cboRecord.employee}`);
+            continue;
+        }
+
         const systemRecord = systemMap.get(key);
 
         if (!systemRecord) {
