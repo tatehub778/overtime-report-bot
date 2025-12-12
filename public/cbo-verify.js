@@ -237,6 +237,8 @@ async function handleVerify(forceRefresh = false) {
 function handleReVerify() {
     handleVerify(true);
 }
+// グローバルスコープに公開（HTMLからの呼び出し用）
+window.handleReVerify = handleReVerify;
 
 // 検証結果表示
 function displayVerificationResult(data, fromCache = false) {
