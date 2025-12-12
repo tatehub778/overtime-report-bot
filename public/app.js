@@ -35,21 +35,72 @@ function renderEmployeeCheckboxes(employees) {
     const factoryEmployees = employees.filter(e => e.department === 'factory');
     const factoryContainer = document.getElementById('factoryEmployees');
     factoryContainer.innerHTML = factoryEmployees.map(emp => `
-        <label class="checkbox-label">
-            <input type="checkbox" name="employee" value="${emp.name}">
-            <span class="checkbox-text">${emp.name}</span>
-        </label>
+        <div class="employee-item" data-employee="${emp.name}">
+            <label class="checkbox-label">
+                <input type="checkbox" name="employee" value="${emp.name}" data-employee="${emp.name}">
+                <span class="checkbox-text">${emp.name}</span>
+            </label>
+            <div class="hours-input-wrapper" style="display: none;">
+                <input type="number" 
+                       class="hours-input" 
+                       id="hours-${emp.name.replace(/\s/g, '_')}" 
+                       placeholder="時間" 
+                       min="0.5" 
+                       max="24" 
+                       step="0.5">
+                <span class="hours-unit">時間</span>
+            </div>
+        </div>
     `).join('');
 
     // 管理チーム
     const managementEmployees = employees.filter(e => e.department === 'management');
     const managementContainer = document.getElementById('managementEmployees');
     managementContainer.innerHTML = managementEmployees.map(emp => `
-        <label class="checkbox-label">
-            <input type="checkbox" name="employee" value="${emp.name}">
-            <span class="checkbox-text">${emp.name}</span>
-        </label>
+        <div class="employee-item" data-employee="${emp.name}">
+            <label class="checkbox-label">
+                <input type="checkbox" name="employee" value="${emp.name}" data-employee="${emp.name}">
+                <span class="checkbox-text">${emp.name}</span>
+            </label>
+            <div class="hours-input-wrapper" style="display: none;">
+                <input type="number" 
+                       class="hours-input" 
+                       id="hours-${emp.name.replace(/\s/g, '_')}" 
+                       placeholder="時間" 
+                       min="0.5" 
+                       max="24" 
+                       step="0.5">
+                <span class="hours-unit">時間</span>
+            </div>
+        </div>
     `).join('');
+
+    // イベントリスナーを追加
+    attachCheckboxListeners();
+}
+
+function attachCheckboxListeners() {
+    const checkboxes = document.querySelectorAll('input[name="employee"]');
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', handleEmployeeSelection);
+    });
+}
+
+function handleEmployeeSelection(e) {
+    const employeeName = e.target.value;
+    const employeeItem = e.target.closest('.employee-item');
+    const hoursWrapper = employeeItem.querySelector('.hours-input-wrapper');
+    const hoursInput = employeeItem.querySelector('.hours-input');
+
+    if (e.target.checked) {
+        // チェックされたら時間入力を表示
+        hoursWrapper.style.display = 'flex';
+        hoursInput.focus();
+    } else {
+        // チェック解除されたら時間入力を非表示＆クリア
+        hoursWrapper.style.display = 'none';
+        hoursInput.value = '';
+    }
 }
 
 
@@ -59,21 +110,38 @@ form.addEventListener('submit', async (e) => {
 
     // 選択された社員を取得
     const employeeCheckboxes = document.querySelectorAll('input[name="employee"]:checked');
-    const employees = Array.from(employeeCheckboxes).map(cb => cb.value);
 
     // バリデーション
-    if (employees.length === 0) {
+    if (employeeCheckboxes.length === 0) {
         showError('社員を1人以上選択してください');
         return;
     }
 
     const date = dateInput.value;
     const category = document.getElementById('category').value;
-    const hours = parseFloat(document.getElementById('hours').value);
 
-    if (!date || !category || !hours) {
-        showError('全ての項目を入力してください');
+    if (!date || !category) {
+        showError('日付とカテゴリーを入力してください');
         return;
+    }
+
+    // 各従業員の時間を収集
+    const reports = [];
+    for (const checkbox of employeeCheckboxes) {
+        const employeeName = checkbox.value;
+        const hoursInputId = `hours-${employeeName.replace(/\s/g, '_')}`;
+        const hoursInput = document.getElementById(hoursInputId);
+        const hours = parseFloat(hoursInput.value);
+
+        if (!hours || hours <= 0) {
+            showError(`${employeeName}の時間を入力してください`);
+            return;
+        }
+
+        reports.push({
+            employee: employeeName,
+            hours: hours
+        });
     }
 
     // ローディング状態
@@ -90,9 +158,8 @@ form.addEventListener('submit', async (e) => {
             },
             body: JSON.stringify({
                 date,
-                employees,
                 category,
-                hours,
+                reports,
             }),
         });
 
@@ -102,6 +169,11 @@ form.addEventListener('submit', async (e) => {
             showSuccess();
             form.reset();
             dateInput.value = today; // 日付を今日にリセット
+
+            // 時間入力フィールドを非表示
+            document.querySelectorAll('.hours-input-wrapper').forEach(wrapper => {
+                wrapper.style.display = 'none';
+            });
         } else {
             showError(result.error || '送信に失敗しました');
         }

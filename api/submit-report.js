@@ -32,38 +32,64 @@ module.exports = async (req, res) => {
     }
 
     try {
-        const { date, employees, category, hours } = req.body;
+        const { date, category, reports, employees, hours } = req.body;
 
         // バリデーション
-        if (!date || !employees || !Array.isArray(employees) || employees.length === 0 || !category || !hours) {
-            return res.status(400).json({ error: '必要な項目が不足しています' });
+        if (!date || !category) {
+            return res.status(400).json({ error: '日付とカテゴリーを入力してください' });
         }
 
-        // レポートデータ作成
-        const reportId = uuidv4();
+        // 新形式と旧形式の両方に対応
+        let reportsToSubmit = [];
+
+        if (reports && Array.isArray(reports)) {
+            // 新形式: 個別時間
+            reportsToSubmit = reports;
+        } else if (employees && Array.isArray(employees) && hours) {
+            // 旧形式: 全員同じ時間（後方互換性）
+            reportsToSubmit = employees.map(emp => ({
+                employee: emp,
+                hours: parseFloat(hours)
+            }));
+        } else {
+            return res.status(400).json({ error: '従業員と時間を入力してください' });
+        }
+
+        if (reportsToSubmit.length === 0) {
+            return res.status(400).json({ error: '少なくとも1人の従業員を選択してください' });
+        }
+
         const now = new Date().toISOString();
+        const savedReports = [];
 
-        const report = {
-            id: reportId,
-            date,
-            employees,
-            category,
-            hours: parseFloat(hours),
-            created_at: now,
-            updated_at: now
-        };
+        // 各従業員ごとに個別のレポートを作成
+        for (const report of reportsToSubmit) {
+            const reportId = uuidv4();
 
-        // Vercel KVに保存
-        await kv.set(`report:${reportId}`, JSON.stringify(report));
+            const reportData = {
+                id: reportId,
+                date,
+                employees: [report.employee], // 1人ずつ保存
+                category,
+                hours: parseFloat(report.hours),
+                created_at: now,
+                updated_at: now
+            };
 
-        // 月別インデックスに追加
-        const monthKey = date.substring(0, 7); // YYYY-MM
-        const monthReportsKey = `reports:${monthKey}`;
-        await kv.sadd(monthReportsKey, reportId);
+            // Vercel KVに保存
+            await kv.set(`report:${reportId}`, JSON.stringify(reportData));
 
-        // LINE通知を送信
+            // 月別インデックスに追加
+            const monthKey = date.substring(0, 7); // YYYY-MM
+            const monthReportsKey = `reports:${monthKey}`;
+            await kv.sadd(monthReportsKey, reportId);
+
+            savedReports.push(reportData);
+        }
+
+        // LINE通知を送信（まとめて）
         try {
-            await sendLineNotification(report);
+            await sendLineNotification(date, category, reportsToSubmit, now);
         } catch (lineError) {
             console.error('LINE notification error:', lineError);
             // LINE通知エラーでも報告は保存されているので続行
@@ -71,8 +97,8 @@ module.exports = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            reportId,
-            message: '報告を送信しました'
+            reportCount: savedReports.length,
+            message: `${savedReports.length}件の報告を送信しました`
         });
 
     } catch (error) {
@@ -82,7 +108,7 @@ module.exports = async (req, res) => {
 };
 
 // LINE通知送信
-async function sendLineNotification(report) {
+async function sendLineNotification(date, category, reports, createdAt) {
     if (!client) {
         console.log('LINE Bot not configured, skipping notification');
         return;
@@ -95,13 +121,16 @@ async function sendLineNotification(report) {
         return;
     }
 
-    const employeeNames = report.employees.join('、');
+    // 各従業員と時間のリスト作成
+    const employeeList = reports.map(r => `  • ${r.employee}: ${r.hours}時間`).join('\n');
+    const totalHours = reports.reduce((sum, r) => sum + parseFloat(r.hours), 0).toFixed(1);
+
     const message = `📝 残業報告が届きました\n\n` +
-        `📅 日付: ${report.date}\n` +
-        `👥 報告者: ${employeeNames}\n` +
-        `⏰ 種別: ${report.category}\n` +
-        `🕐 時間: ${report.hours}h\n\n` +
-        `報告時刻: ${new Date(report.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
+        `📅 日付: ${date}\n` +
+        `⏰ カテゴリ: ${category}\n\n` +
+        `👥 報告者:\n${employeeList}\n\n` +
+        `合計: ${totalHours}時間\n\n` +
+        `報告時刻: ${new Date(createdAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
 
     // 特定のグループに送信
     try {

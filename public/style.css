@@ -129,6 +129,95 @@ body {
     border-left: 4px solid var(--primary-color);
 }
 
+/* 従業員アイテム（チェックボックス + 時間入力） */
+.employee-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.checkbox-label:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(4px);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #10b981;
+}
+
+.checkbox-label input[type="checkbox"]:checked+.checkbox-text {
+    font-weight: 600;
+    color: #10b981;
+}
+
+.checkbox-text {
+    flex: 1;
+    font-size: 0.95rem;
+    color: #333;
+    transition: all 0.3s ease;
+}
+
+/* 時間入力ラッパー */
+.hours-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px 8px 46px;
+    background: rgba(16, 185, 129, 0.05);
+    border-radius: 8px;
+    border-left: 3px solid #10b981;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hours-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.hours-input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.hours-unit {
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
 .checkbox-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -162,7 +251,7 @@ body {
     accent-color: var(--primary-color);
 }
 
-.checkbox-label input[type="checkbox"]:checked + .checkbox-text {
+.checkbox-label input[type="checkbox"]:checked+.checkbox-text {
     font-weight: 600;
     color: var(--primary-color);
 }
@@ -287,6 +376,7 @@ body {
         opacity: 0;
         transform: translateY(-30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -298,6 +388,7 @@ body {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -309,6 +400,7 @@ body {
         opacity: 0;
         transform: translateX(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateX(0);
