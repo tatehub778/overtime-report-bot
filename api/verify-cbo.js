@@ -219,8 +219,11 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
     for (const [key, cboRecord] of cboMap) {
         // 登録済みの社員かチェック（登録外は無視）
         const normalizedName = normalizeEmployeeName(cboRecord.employee);
-        if (!employeesRef.map.has(normalizedName)) {
-            // console.log(`Skipping unregistered employee: ${cboRecord.employee}`);
+        const employeeMeta = employeesRef.map.get(normalizedName);
+
+        // マスタにない、または退職者（非アクティブ）は無視
+        if (!employeeMeta || !employeeMeta.active) {
+            // console.log(`Skipping unregistered/inactive employee: ${cboRecord.employee}`);
             continue;
         }
 
