@@ -217,6 +217,9 @@ function performVerification(cboRecords, systemReports, month) {
         time_discrepancies: discrepancies.length
     };
 
+    // 従業員ごとにグループ化
+    const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords);
+
     return {
         month,
         verified_at: new Date().toISOString(),
@@ -226,8 +229,71 @@ function performVerification(cboRecords, systemReports, month) {
             excess: excess.sort((a, b) => a.date.localeCompare(b.date)),
             discrepancies: discrepancies.sort((a, b) => a.date.localeCompare(b.date)),
             matches: matches.sort((a, b) => a.date.localeCompare(b.date))
-        }
+        },
+        by_employee: byEmployee
     };
+}
+
+/**
+ * 従業員ごとにデータをグループ化
+ */
+function groupByEmployee(missing, excess, discrepancies, matches, cboRecords) {
+    const employeeMap = new Map();
+
+    // 全従業員をCBOレコードの順番で取得
+    const employeeOrder = [];
+    cboRecords.forEach(record => {
+        if (!employeeOrder.includes(record.employee)) {
+            employeeOrder.push(record.employee);
+        }
+    });
+
+    // 各カテゴリのデータを従業員ごとに振り分け
+    [...missing, ...excess, ...discrepancies, ...matches].forEach(item => {
+        if (!employeeMap.has(item.employee)) {
+            employeeMap.set(item.employee, []);
+        }
+
+        let status = 'match';
+        let icon = '✅';
+        if (missing.includes(item)) {
+            status = 'missing';
+            icon = '⚠️';
+        } else if (excess.includes(item)) {
+            status = 'excess';
+            icon = '❌';
+        } else if (discrepancies.includes(item)) {
+            status = 'discrepancy';
+            icon = '🔄';
+        }
+
+        employeeMap.get(item.employee).push({
+            date: item.date,
+            status,
+            icon,
+            cbo_hours: item.cbo_hours !== undefined ? item.cbo_hours : item.hours,
+            system_hours: item.system_hours !== undefined ? item.system_hours : item.hours,
+            difference: item.difference || 0,
+            category: item.category || ''
+        });
+    });
+
+    // 従業員ごとにソート（日付順）
+    const result = [];
+    employeeOrder.forEach(employee => {
+        if (employeeMap.has(employee)) {
+            const records = employeeMap.get(employee).sort((a, b) => a.date.localeCompare(b.date));
+            result.push({
+                employee,
+                records,
+                total_records: records.length,
+                matches: records.filter(r => r.status === 'match').length,
+                issues: records.filter(r => r.status !== 'match').length
+            });
+        }
+    });
+
+    return result;
 }
 
 /**
