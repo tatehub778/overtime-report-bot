@@ -246,6 +246,11 @@ function displayVerificationResult(data) {
     displayDetailList('discrepancy-list', data.details.discrepancies, 'discrepancy');
     displayDetailList('matches-list', data.details.matches, 'match');
 
+    // デバッグ情報表示
+    if (data.debug) {
+        displayDebugInfo(data.debug);
+    }
+
     // セクション表示順調整（問題があるものを上に）
     const missingSec = document.getElementById('missing-section');
     const excessSec = document.getElementById('excess-section');
@@ -259,6 +264,56 @@ function displayVerificationResult(data) {
     // 結果セクションを表示
     resultSection.style.display = 'block';
     resultSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// デバッグ情報表示
+function displayDebugInfo(debug) {
+    console.log('=== デバッグ情報 ===');
+    console.log('システムレポート総数:', debug.total_system_reports);
+    console.log('サンプルレポート1:', debug.sample_system_report);
+    console.log('サンプルレポート2:', debug.sample_system_report_2);
+
+    // UIに表示（折りたたみ可能）
+    let debugHTML = `
+        <div style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; font-size: 14px;">
+            <details>
+                <summary style="cursor: pointer; font-weight: 600; margin-bottom: 10px;">
+                    🔧 デバッグ情報（クリックして展開）
+                </summary>
+                <div style="padding: 10px; background: white; border-radius: 4px; font-family: monospace;">
+                    <p><strong>システムレポート総数:</strong> ${debug.total_system_reports}件</p>
+    `;
+
+    if (debug.sample_system_report) {
+        debugHTML += `
+                    <p><strong>サンプルレポート1:</strong></p>
+                    <pre style="background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(debug.sample_system_report, null, 2)}</pre>
+        `;
+    }
+
+    if (debug.sample_system_report_2) {
+        debugHTML += `
+                    <p><strong>サンプルレポート2:</strong></p>
+                    <pre style="background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(debug.sample_system_report_2, null, 2)}</pre>
+        `;
+    }
+
+    debugHTML += `
+                </div>
+            </details>
+        </div>
+    `;
+
+    // result-section の最後に追加
+    const resultSection = document.getElementById('result-section');
+    const existingDebug = resultSection.querySelector('.debug-info');
+    if (existingDebug) {
+        existingDebug.remove();
+    }
+    const debugDiv = document.createElement('div');
+    debugDiv.className = 'debug-info';
+    debugDiv.innerHTML = debugHTML;
+    resultSection.appendChild(debugDiv);
 }
 
 // 詳細リスト表示
