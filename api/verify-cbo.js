@@ -53,6 +53,9 @@ export default async function handler(req, res) {
         // システムの残業報告を取得
         const systemReports = await getSystemReports(month);
 
+        // 従業員マスタを取得（表示順のため）
+        const employeesRef = await getEmployeesMap();
+
         console.log('=== DEBUG: System Reports ===');
         console.log('Total system reports:', systemReports.length);
         if (systemReports.length > 0) {
@@ -60,7 +63,7 @@ export default async function handler(req, res) {
         }
 
         // 突合を実行
-        const verification = performVerification(cboData.records, systemReports, month);
+        const verification = performVerification(cboData.records, systemReports, month, employeesRef);
 
         // デバッグ情報を追加
         verification.debug = {
@@ -115,9 +118,38 @@ async function getSystemReports(month) {
 }
 
 /**
+ * 従業員マスタを取得してマップ化
+ */
+async function getEmployeesMap() {
+    const employeeIds = await kv.smembers('employees:all') || [];
+    const employees = [];
+
+    for (const id of employeeIds) {
+        const data = await kv.get(`employee:${id}`);
+        if (data) {
+            employees.push(typeof data === 'string' ? JSON.parse(data) : data);
+        }
+    }
+
+    // display_orderでソート
+    employees.sort((a, b) => {
+        if (a.display_order !== undefined && b.display_order !== undefined) {
+            return a.display_order - b.display_order;
+        }
+        return a.name.localeCompare(b.name, 'ja');
+    });
+
+    // 名前 → 順序のマップ、および順序付きリスト
+    return {
+        list: employees.map(e => e.cboName), // CBOでの名前を使用
+        map: new Map(employees.map((e, index) => [e.cboName, index]))
+    };
+}
+
+/**
  * 突合を実行
  */
-function performVerification(cboRecords, systemReports, month) {
+function performVerification(cboRecords, systemReports, month, employeesRef) {
     // CBOレコードを従業員名+日付でマップ化
     const cboMap = new Map();
     for (const record of cboRecords) {
@@ -236,7 +268,7 @@ function performVerification(cboRecords, systemReports, month) {
     };
 
     // 従業員ごとにグループ化
-    const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords);
+    const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef);
 
     return {
         month,
@@ -255,15 +287,30 @@ function performVerification(cboRecords, systemReports, month) {
 /**
  * 従業員ごとにデータをグループ化
  */
-function groupByEmployee(missing, excess, discrepancies, matches, cboRecords) {
+/**
+ * 従業員ごとにデータをグループ化
+ */
+function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef) {
     const employeeMap = new Map();
+    const encounteredEmployees = new Set();
 
-    // 全従業員をCBOレコードの順番で取得
-    const employeeOrder = [];
-    cboRecords.forEach(record => {
-        if (!employeeOrder.includes(record.employee)) {
-            employeeOrder.push(record.employee);
+    // 全データの従業員を収集
+    [...missing, ...excess, ...discrepancies, ...matches].forEach(item => {
+        encounteredEmployees.add(item.employee);
+    });
+    cboRecords.forEach(r => encounteredEmployees.add(r.employee));
+
+    // ソート順を決定
+    const sortedEmployees = Array.from(encounteredEmployees).sort((a, b) => {
+        // マスタにある場合はその順序を使用
+        const orderA = employeesRef && employeesRef.map.has(a) ? employeesRef.map.get(a) : 9999;
+        const orderB = employeesRef && employeesRef.map.has(b) ? employeesRef.map.get(b) : 9999;
+
+        if (orderA !== orderB) {
+            return orderA - orderB;
         }
+        // マスタにないもの同士は名前順
+        return a.localeCompare(b, 'ja');
     });
 
     // 各カテゴリのデータを従業員ごとに振り分け
