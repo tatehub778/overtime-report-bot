@@ -48,12 +48,16 @@ export default async function handler(req, res) {
         await kv.set(kvKey, data);
 
         // 統計情報を返す
+        const dates = records.map(r => new Date(r.date));
+        const minDate = new Date(Math.min(...dates));
+        const maxDate = new Date(Math.max(...dates));
+
         const stats = {
             total_records: records.length,
             employees: [...new Set(records.map(r => r.employee))].length,
             date_range: {
-                start: records.reduce((min, r) => r.date < min ? r.date : min, records[0].date),
-                end: records.reduce((max, r) => r.date > max ? r.date : max, records[0].date)
+                start: formatDate(minDate),
+                end: formatDate(maxDate)
             },
             total_hours: records.reduce((sum, r) => sum + r.total, 0).toFixed(1)
         };
@@ -198,4 +202,14 @@ function parseHours(hoursStr) {
     }
 
     return hours;
+}
+
+/**
+ * Date オブジェクトを YYYY/MM/DD 形式にフォーマット
+ */
+function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
 }
