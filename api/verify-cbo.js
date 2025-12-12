@@ -139,10 +139,16 @@ async function getEmployeesMap() {
         return a.name.localeCompare(b.name, 'ja');
     });
 
-    // 名前 → 順序のマップ、および順序付きリスト
+    // 名前 → メタデータ（順序、所属）のマップ
     return {
-        list: employees.map(e => e.cboName), // CBOでの名前を使用
-        map: new Map(employees.map((e, index) => [e.cboName, index]))
+        list: employees.map(e => e.cboName),
+        map: new Map(employees.map((e, index) => [
+            e.cboName,
+            {
+                index,
+                department: e.department || 'unknown'
+            }
+        ]))
     };
 }
 
