@@ -302,14 +302,25 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
 
     // ソート順を決定
     const sortedEmployees = Array.from(encounteredEmployees).sort((a, b) => {
-        // マスタにある場合はその順序を使用
-        const orderA = employeesRef && employeesRef.map.has(a) ? employeesRef.map.get(a) : 9999;
-        const orderB = employeesRef && employeesRef.map.has(b) ? employeesRef.map.get(b) : 9999;
+        // メタデータを取得
+        const metaA = employeesRef && employeesRef.map.has(a) ? employeesRef.map.get(a) : { index: 9999, department: 'unknown' };
+        const metaB = employeesRef && employeesRef.map.has(b) ? employeesRef.map.get(b) : { index: 9999, department: 'unknown' };
 
-        if (orderA !== orderB) {
-            return orderA - orderB;
+        // 1. 所属でソート (factory -> management -> others)
+        const deptOrder = { 'factory': 1, 'management': 2, 'unknown': 3 };
+        const deptA = deptOrder[metaA.department] || 3;
+        const deptB = deptOrder[metaB.department] || 3;
+
+        if (deptA !== deptB) {
+            return deptA - deptB;
         }
-        // マスタにないもの同士は名前順
+
+        // 2. その中での順序（display_order）
+        if (metaA.index !== metaB.index) {
+            return metaA.index - metaB.index;
+        }
+
+        // 3. 最後は名前順
         return a.localeCompare(b, 'ja');
     });
 
