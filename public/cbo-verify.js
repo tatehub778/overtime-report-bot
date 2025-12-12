@@ -303,32 +303,30 @@ function displayCacheStatus(fromCache, verifiedAt) {
                 <span style="font-size: 20px;">${fromCache ? '💾' : '✨'}</span>
                 <div>
                     <div style="font-weight: 600; color: #1F2937;">
-                        ${fromCache ? '保存済みの検証結果を表示中' : '検証完了・結果を保存しました'}
+                        ${fromCache ? '保存済みの検証結果を表示中' : '検証完了'}
                     </div>
                     <div style="font-size: 13px; color: #6B7280;">
-                        検証日時: ${dateStr}
+                        データ日時: ${dateStr}
                     </div>
                 </div>
             </div>
-            ${fromCache ? `
-                <button 
-                    onclick="handleReVerify()"
-                    style="
-                        background: #3B82F6;
-                        color: white;
-                        border: none;
-                        padding: 8px 16px;
-                        border-radius: 6px;
-                        font-size: 14px;
-                        cursor: pointer;
-                        font-weight: 500;
-                    "
-                    onmouseover="this.style.background='#2563EB'"
-                    onmouseout="this.style.background='#3B82F6'"
-                >
-                    🔄 再検証
-                </button>
-            ` : ''}
+            <button 
+                onclick="handleReVerify()"
+                style="
+                    background: #3B82F6;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    cursor: pointer;
+                    font-weight: 500;
+                "
+                onmouseover="this.style.background='#2563EB'"
+                onmouseout="this.style.background='#3B82F6'"
+            >
+                🔄 再検証
+            </button>
         </div>
     `;
 }
