@@ -287,44 +287,6 @@ body {
     gap: 12px;
 }
 
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: var(--bg-secondary);
-    border: 2px solid var(--border-color);
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    user-select: none;
-}
-
-.checkbox-label:hover {
-    border-color: var(--primary-light);
-    background: #f0f4ff;
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.checkbox-label input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    accent-color: var(--primary-color);
-}
-
-.checkbox-label input[type="checkbox"]:checked+.checkbox-text {
-    font-weight: 600;
-    color: var(--primary-color);
-}
-
-.checkbox-text {
-    font-size: 0.95rem;
-    color: var(--text-primary);
-    transition: all 0.2s ease;
-}
-
 /* Input Fields */
 .input-field {
     width: 100%;
