@@ -138,6 +138,9 @@ function parseLine(line, lineNumber) {
         throw new Error(`Invalid date format: ${date}`);
     }
 
+    // 日付を正規化（0パディング）: 2025/11/1 → 2025/11/01
+    const normalizedDate = normalizeDateFormat(date);
+
     // 従業員名を正規化（番号を除去）
     const employee = normalizeEmployeeName(employeeRaw);
 
@@ -159,7 +162,7 @@ function parseLine(line, lineNumber) {
     }
 
     return {
-        date,
+        date: normalizedDate,
         employee,
         overtime,
         early,
@@ -167,6 +170,21 @@ function parseLine(line, lineNumber) {
         regular_work: regularWork,
         total: parseFloat(total.toFixed(2))
     };
+}
+
+/**
+ * 日付を正規化（0パディング）
+ * 例: "2025/11/1" → "2025/11/01"
+ */
+function normalizeDateFormat(date) {
+    const parts = date.split('/');
+    if (parts.length !== 3) return date;
+
+    const year = parts[0];
+    const month = parts[1].padStart(2, '0');
+    const day = parts[2].padStart(2, '0');
+
+    return `${year}/${month}/${day}`;
 }
 
 /**
