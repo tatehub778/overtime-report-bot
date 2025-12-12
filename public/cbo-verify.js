@@ -21,6 +21,29 @@ const resultSection = document.getElementById('result-section');
 const exportBtn = document.getElementById('export-btn');
 const newVerifyBtn = document.getElementById('new-verify-btn');
 
+// ページリセット
+function resetPage(clearMonth = true) {
+    selectedFile = null;
+    verificationData = null;
+    fileInput.value = '';
+
+    // 表示リセット
+    fileInfo.style.display = 'none';
+    uploadResult.style.display = 'none';
+    resultSection.style.display = 'none';
+    uploadArea.classList.remove('drag-over');
+    document.getElementById('upload-section').style.display = 'block';
+
+    // プログレスバーリセット
+    progress.style.display = 'none';
+    progressBar.style.width = '0%';
+
+    if (clearMonth) {
+        const now = new Date();
+        targetMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+}
+
 // グローバル変数
 let selectedFile = null;
 let verificationData = null;
@@ -33,6 +56,7 @@ function init() {
     targetMonth.value = currentMonth;
 
     // イベントリスナー
+    targetMonth.addEventListener('change', checkExistingData);
     browseBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', handleFileSelect);
     uploadArea.addEventListener('dragover', handleDragOver);
@@ -42,6 +66,44 @@ function init() {
     verifyBtn.addEventListener('click', handleVerify);
     exportBtn.addEventListener('click', handleExport);
     newVerifyBtn.addEventListener('click', resetPage);
+
+    // 初期ロード時にデータをチェック
+    checkExistingData();
+}
+
+// 既存データのチェック
+async function checkExistingData() {
+    const month = targetMonth.value;
+    if (!month) return;
+
+    try {
+        // キャッシュチェック（再検証なし）
+        const response = await fetch(`${API_BASE}/verify-cbo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ month, force_refresh: false })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.from_cache && result.verification) {
+                console.log('Found cached data');
+                verificationData = result.verification;
+                displayVerificationResult(verificationData, true);
+
+                // アップロードセクションを隠す（結果がある場合）
+                document.getElementById('upload-section').style.display = 'none';
+            } else {
+                // データがない場合はアップロード画面に戻る（月変更時など）
+                resetPage(false);
+            }
+        } else {
+            resetPage(false);
+        }
+    } catch (error) {
+        console.log('No existing data or error:', error);
+        resetPage(false);
+    }
 }
 
 // ファイル選択
