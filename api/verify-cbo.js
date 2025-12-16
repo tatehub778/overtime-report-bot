@@ -183,12 +183,18 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
         for (const employee of report.employees) {
             const key = `${employee}|${formatDateFromReport(report.date)}`;
 
+            const categoryInfo = {
+                id: report.id,
+                category: report.category,
+                hours: report.hours
+            };
+
             if (systemMap.has(key)) {
                 // 同じ日に複数報告がある場合は合計
                 const existing = systemMap.get(key);
                 existing.hours += report.hours;
                 existing.categories = existing.categories || [];
-                existing.categories.push({ category: report.category, hours: report.hours });
+                existing.categories.push(categoryInfo);
                 console.log(`  → Adding to existing: ${employee} on ${formatDateFromReport(report.date)}, new total: ${existing.hours}h`);
             } else {
                 systemMap.set(key, {
@@ -196,7 +202,7 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
                     date: formatDateFromReport(report.date),
                     hours: report.hours,
                     category: report.category,
-                    categories: [{ category: report.category, hours: report.hours }]
+                    categories: [categoryInfo]
                 });
                 console.log(`  → New entry: ${employee} on ${formatDateFromReport(report.date)}, ${report.hours}h`);
             }
@@ -248,13 +254,15 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
                     employee: cboRecord.employee,
                     cbo_hours: cboRecord.total,
                     system_hours: systemRecord.hours,
-                    difference: parseFloat((cboRecord.total - systemRecord.hours).toFixed(2))
+                    difference: parseFloat((cboRecord.total - systemRecord.hours).toFixed(2)),
+                    system_details: systemRecord.categories
                 });
             } else {
                 matches.push({
                     date: cboRecord.date,
                     employee: cboRecord.employee,
-                    hours: cboRecord.total
+                    hours: cboRecord.total,
+                    system_details: systemRecord.categories
                 });
             }
 
@@ -270,7 +278,8 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
             employee: systemRecord.employee,
             cbo_hours: 0,
             system_hours: systemRecord.hours,
-            category: systemRecord.category
+            category: systemRecord.category,
+            system_details: systemRecord.categories
         });
     }
 
@@ -373,7 +382,8 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
             cbo_hours: item.cbo_hours !== undefined ? item.cbo_hours : item.hours,
             system_hours: item.system_hours !== undefined ? item.system_hours : item.hours,
             difference: item.difference || 0,
-            category: item.category || ''
+            category: item.category || '',
+            system_details: item.system_details || []
         });
     });
 

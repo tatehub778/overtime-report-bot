@@ -147,6 +147,42 @@
         </section>
     </div>
 
+    <!-- Edit Report Modal -->
+    <div id="edit-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" id="close-modal">&times;</span>
+            <h2>報告内容の修正</h2>
+            <form id="edit-form">
+                <input type="hidden" id="edit-report-id">
+                <div class="form-group">
+                    <label>日付:</label>
+                    <input type="text" id="edit-date" readonly disabled>
+                </div>
+                <div class="form-group">
+                    <label>従業員:</label>
+                    <input type="text" id="edit-employee" readonly disabled>
+                </div>
+                <div class="form-group">
+                    <label>カテゴリ:</label>
+                    <select id="edit-category">
+                        <option value="早出">早出</option>
+                        <option value="残業">残業</option>
+                        <option value="深夜">深夜</option>
+                        <option value="休日">休日</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>時間:</label>
+                    <input type="number" id="edit-hours" step="0.25" min="0">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" id="btn-cancel">キャンセル</button>
+                    <button type="submit" class="btn-save">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="cbo-verify.js"></script>
 </body>
 

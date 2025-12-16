@@ -63,9 +63,19 @@ function init() {
     uploadArea.addEventListener('dragleave', handleDragLeave);
     uploadArea.addEventListener('drop', handleDrop);
     uploadBtn.addEventListener('click', handleUpload);
-    verifyBtn.addEventListener('click', handleVerify);
+    verifyBtn.addEventListener('click', () => handleVerify(false));
     exportBtn.addEventListener('click', handleExport);
-    newVerifyBtn.addEventListener('click', resetPage);
+    newVerifyBtn.addEventListener('click', () => location.reload());
+
+    // Modal Listeners
+    document.getElementById('edit-form').addEventListener('submit', handleEditSubmit);
+    document.getElementById('close-modal').addEventListener('click', closeEditModal);
+    document.getElementById('btn-cancel').addEventListener('click', closeEditModal);
+    window.addEventListener('click', (e) => {
+        if (e.target === document.getElementById('edit-modal')) {
+            closeEditModal();
+        }
+    });
 
     // 初期ロード時にデータをチェック
     checkExistingData();
@@ -301,6 +311,7 @@ function handleReVerify() {
 }
 // グローバルスコープに公開（HTMLからの呼び出し用）
 window.handleReVerify = handleReVerify;
+window.resetPage = resetPage;
 
 // 検証結果表示
 function displayVerificationResult(data, fromCache = false) {
@@ -468,13 +479,14 @@ function displayByEmployee(byEmployee) {
                 <div style="
                     padding: 8px 0;
                     border-bottom: 1px dashed #E5E7EB;
-                    display: flex;
-                    align-items: center;
-                    gap: 10px;
+                    display: block; 
                 ">
-                    <span style="font-size: 20px;">${record.icon}</span>
-                    <span style="min-width: 50px; font-weight: 500; color: #6B7280;">${date}</span>
-                    <span style="color: ${statusColor}; flex: 1;">${statusText}</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 20px;">${record.icon}</span>
+                        <span style="min-width: 50px; font-weight: 500; color: #6B7280;">${date}</span>
+                        <span style="color: ${statusColor}; flex: 1;">${statusText}</span>
+                    </div>
+                    ${renderSystemDetails(record)}
                 </div>
             `;
         });
@@ -617,10 +629,114 @@ function handleExport() {
     link.click();
 }
 
-// ページリセット
-function resetPage() {
-    location.reload();
+
+
+// ---------------------------------------------------------
+// Edit / Delete Functions
+// ---------------------------------------------------------
+
+// システム詳細（編集用ボタン付き）のレンダリング
+function renderSystemDetails(record) {
+    if (!record.system_details || record.system_details.length === 0) return '';
+
+    // システム報告に関連するレコードのみ詳細を表示
+    // missing (CBOあり、システムなし) の場合は詳細は空のはずだが、もしあれば表示
+
+    let html = '<div class="system-details-list">';
+    html += record.system_details.map(detail => `
+        <div class="system-detail-item">
+            <span style="color: #666; font-size: 0.9em;">
+                📝 システム報告: <strong>${detail.category}</strong> ${detail.hours}h
+            </span>
+            <div class="report-actions">
+                <button class="btn-sm btn-edit" onclick="openEditReport('${detail.id}', '${record.date}', '${record.employee}', '${detail.category}', ${detail.hours})">編集</button>
+                <button class="btn-sm btn-delete" onclick="deleteReport('${detail.id}')">削除</button>
+            </div>
+        </div>
+    `).join('');
+    html += '</div>';
+    return html;
 }
+
+// 削除処理
+async function deleteReport(reportId) {
+    if (!confirm('本当にこの報告を削除しますか？\nこの操作は取り消せません。')) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/manage-report?id=${reportId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || '削除に失敗しました');
+        }
+
+        alert('削除しました');
+        // 再検証（強制リフレッシュ）
+        handleVerify(true);
+
+    } catch (error) {
+        console.error('Delete error:', error);
+        alert(`エラー: ${error.message}`);
+    }
+}
+
+// 編集モーダルを開く
+function openEditReport(id, date, employee, category, hours) {
+    document.getElementById('edit-report-id').value = id;
+    document.getElementById('edit-date').value = date;
+    document.getElementById('edit-employee').value = employee;
+    document.getElementById('edit-category').value = category;
+    document.getElementById('edit-hours').value = hours;
+
+    document.getElementById('edit-modal').style.display = 'flex';
+}
+
+// 編集モーダルを閉じる
+function closeEditModal() {
+    document.getElementById('edit-modal').style.display = 'none';
+}
+
+// 編集保存処理
+async function handleEditSubmit(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('edit-report-id').value;
+    const hours = document.getElementById('edit-hours').value;
+    const category = document.getElementById('edit-category').value;
+    const date = document.getElementById('edit-date').value.replace(/\//g, '-'); // YYYY/MM/DD -> YYYY-MM-DD
+
+    try {
+        const response = await fetch(`${API_BASE}/manage-report?id=${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                hours,
+                category,
+                date: date // 日付変更は今回はUIでdisableにしているがAPIは対応済み
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || '更新に失敗しました');
+        }
+
+        alert('更新しました');
+        closeEditModal();
+        // 再検証
+        handleVerify(true);
+
+    } catch (error) {
+        console.error('Update error:', error);
+        alert(`エラー: ${error.message}`);
+    }
+}
+
+// グローバル公開
+window.deleteReport = deleteReport;
+window.openEditReport = openEditReport;
 
 // 初期化実行
 init();
