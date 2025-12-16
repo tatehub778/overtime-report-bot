@@ -434,7 +434,7 @@ function displayByEmployee(byEmployee) {
         resultSection.insertBefore(employeeSection, resultSection.querySelector('.debug-info') || resultSection.firstChild);
     }
 
-    let html = '<h2 style="margin: 20px 0;">従業員別検証結果</h2>';
+    let html = '<h2 style="margin: 20px 0;">メンバー別検証結果</h2>';
 
     byEmployee.forEach(emp => {
         const statusClass = emp.issues > 0 ? 'has-issues' : 'all-good';
