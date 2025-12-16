@@ -488,7 +488,7 @@ function displayByEmployee(byEmployee) {
                         <span style="min-width: 50px; font-weight: 500; color: #6B7280;">${date}</span>
                         <span style="color: ${statusColor}; flex: 1;">${statusText}</span>
                     </div>
-                    ${renderSystemDetails(record)}
+                    ${renderSystemDetails(record, emp.employee)}
                 </div>
             `;
         });
@@ -638,7 +638,7 @@ function handleExport() {
 // ---------------------------------------------------------
 
 // システム詳細（編集用ボタン付き）のレンダリング
-function renderSystemDetails(record) {
+function renderSystemDetails(record, employeeName) {
     if (!record.system_details || record.system_details.length === 0) return '';
 
     // システム報告に関連するレコードのみ詳細を表示
@@ -651,7 +651,7 @@ function renderSystemDetails(record) {
                 📝 システム報告: <strong>${detail.category}</strong> ${detail.hours}h
             </span>
             <div class="report-actions">
-                <button class="btn-sm btn-edit" onclick="openEditReport('${detail.id}', '${record.date}', '${record.employee}', '${detail.category}', ${detail.hours})">編集</button>
+                <button class="btn-sm btn-edit" onclick="openEditReport('${detail.id}', '${record.date}', '${employeeName}', '${detail.category}', ${detail.hours})">編集</button>
                 <button class="btn-sm btn-delete" onclick="deleteReport('${detail.id}')">削除</button>
             </div>
         </div>
