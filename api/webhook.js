@@ -185,10 +185,7 @@ async function handleListCommand(event, targetMonth = null) {
         // メッセージ整形
         let message = await formatSummaryMessage(currentMonth, employeeSummary, reports.length);
 
-        // グループIDを追加（デバッグ用）
-        if (event.source && event.source.type === 'group' && event.source.groupId) {
-            message += '\n\n━━━━━━━━━━━━━━━\n🆔 Group ID:\n' + event.source.groupId;
-        }
+
 
         return await client.replyMessage(event.replyToken, {
             type: 'text',
@@ -226,10 +223,27 @@ async function formatSummaryMessage(month, employeeSummary, totalReports) {
     if (factoryWithReports.length > 0) {
         factoryWithReports.forEach(employee => {
             message += `\n${employee}\n`;
-            const records = employeeSummary[employee].sort((a, b) => new Date(a.date) - new Date(b.date));
-            records.forEach(record => {
-                const dateStr = record.date.substring(5).replace('-', '/'); // MM/DD
-                message += `${dateStr}  ${record.category} ${record.hours}h\n`;
+
+            // 日付ごとにグループ化
+            const reportsByDate = {};
+            employeeSummary[employee].forEach(record => {
+                if (!reportsByDate[record.date]) {
+                    reportsByDate[record.date] = [];
+                }
+                reportsByDate[record.date].push(record);
+            });
+
+            // 日付順にソートして表示
+            Object.keys(reportsByDate).sort().forEach(date => {
+                const dateRecords = reportsByDate[date];
+                const dateStr = date.substring(5).replace('-', '/'); // MM/DD
+
+                // カテゴリと時間を結合
+                const details = dateRecords
+                    .map(r => `${r.category}${r.hours}h`)
+                    .join(' + ');
+
+                message += `${dateStr}  ${details}\n`;
             });
         });
     } else {
@@ -243,10 +257,27 @@ async function formatSummaryMessage(month, employeeSummary, totalReports) {
     if (managementWithReports.length > 0) {
         managementWithReports.forEach(employee => {
             message += `\n${employee}\n`;
-            const records = employeeSummary[employee].sort((a, b) => new Date(a.date) - new Date(b.date));
-            records.forEach(record => {
-                const dateStr = record.date.substring(5).replace('-', '/'); // MM/DD
-                message += `${dateStr}  ${record.category} ${record.hours}h\n`;
+
+            // 日付ごとにグループ化
+            const reportsByDate = {};
+            employeeSummary[employee].forEach(record => {
+                if (!reportsByDate[record.date]) {
+                    reportsByDate[record.date] = [];
+                }
+                reportsByDate[record.date].push(record);
+            });
+
+            // 日付順にソートして表示
+            Object.keys(reportsByDate).sort().forEach(date => {
+                const dateRecords = reportsByDate[date];
+                const dateStr = date.substring(5).replace('-', '/'); // MM/DD
+
+                // カテゴリと時間を結合
+                const details = dateRecords
+                    .map(r => `${r.category}${r.hours}h`)
+                    .join(' + ');
+
+                message += `${dateStr}  ${details}\n`;
             });
         });
     } else {
