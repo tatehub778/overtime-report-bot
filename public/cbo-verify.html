@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CBO CSV 検証 - 残業報告システム</title>
     <link rel="stylesheet" href="cbo-verify.css">
+    <link rel="stylesheet" href="nav.css">
 </head>
 
 <body>
@@ -13,8 +14,13 @@
         <header>
             <h1>📊 CBO CSV 検証</h1>
             <p class="subtitle">CBOの勤務記録とシステムの残業報告を突合します</p>
-            <a href="admin.html" class="back-link">← 管理画面に戻る</a>
         </header>
+
+        <nav class="main-nav">
+            <a href="/" class="nav-btn">📝 残業報告</a>
+            <a href="/cbo-verify.html" class="nav-btn active">📊 CBO検証</a>
+            <a href="/admin.html" class="nav-btn">👥 管理画面</a>
+        </nav>
 
         <!-- コントロールセクション（月選択） -->
         <section id="control-section" class="section">
