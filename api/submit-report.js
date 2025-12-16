@@ -113,6 +113,18 @@ async function sendLineNotification(date, reports, createdAt) {
         return;
     }
 
+    // **設定の確認** (New)
+    try {
+        const lineEnabled = await kv.get('config:line_notification');
+        if (lineEnabled === false) {
+            console.log('LINE notification disabled in settings, skipping.');
+            return;
+        }
+    } catch (confError) {
+        console.error('Failed to fetching settings:', confError);
+        // 設定取得エラーでもデフォルト(ON)として続行
+    }
+
     // 各従業員の情報をフォーマット
     const employeeList = reports.map(r => {
         const categoryList = r.categories

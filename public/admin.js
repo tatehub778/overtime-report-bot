@@ -4,12 +4,49 @@ let employees = [];
 // ページ読み込み時
 document.addEventListener('DOMContentLoaded', async () => {
     await loadEmployees();
+    await loadSettings();
 
     // イベントリスナー
     document.getElementById('addForm').addEventListener('submit', handleAddEmployee);
     document.getElementById('editForm').addEventListener('submit', handleEditEmployee);
     document.getElementById('showInactive').addEventListener('change', renderEmployees);
 });
+
+// 設定読み込み
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+            const data = await response.json();
+            const toggle = document.getElementById('lineNotifyToggle');
+            if (toggle) {
+                toggle.checked = data.line_notification_enabled;
+                toggle.addEventListener('change', handleSettingChange);
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load settings', e);
+    }
+}
+
+// 設定変更ハンドラ
+async function handleSettingChange(e) {
+    const enabled = e.target.checked;
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ line_notification_enabled: enabled })
+        });
+
+        if (!response.ok) throw new Error('Save failed');
+
+    } catch (error) {
+        console.error('Failed to save setting', error);
+        alert('設定の保存に失敗しました');
+        e.target.checked = !enabled; // 元に戻す
+    }
+}
 
 // 社員データ読み込み
 async function loadEmployees() {
