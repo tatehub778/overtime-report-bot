@@ -1,6 +1,12 @@
-import { kv } from '@vercel/kv';
+const { Redis } = require('@upstash/redis');
 
-export default async function handler(req, res) {
+// Upstash Redis client
+const kv = new Redis({
+    url: process.env.KV_REST_API_URL,
+    token: process.env.KV_REST_API_TOKEN,
+});
+
+module.exports = async (req, res) => {
     // CORS configuration
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -18,6 +24,7 @@ export default async function handler(req, res) {
             });
         } else if (req.method === 'POST') {
             const { line_notification_enabled } = req.body;
+            // Check specifically for boolean to allow false
             if (typeof line_notification_enabled !== 'boolean') {
                 return res.status(400).json({ error: 'Invalid value' });
             }
