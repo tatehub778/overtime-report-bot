@@ -1,4 +1,4 @@
-const CACHE_NAME = 'overtime-report-v1';
+const CACHE_NAME = 'overtime-report-v2';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -15,13 +15,25 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// フェッチ時
+// フェッチ時 (Network First strategy)
 self.addEventListener('fetch', (event) => {
     event.respondWith(
-        caches.match(event.request)
+        fetch(event.request)
             .then((response) => {
-                // キャッシュがあれば返す、なければネットワークから取得
-                return response || fetch(event.request);
+                // ネットワークから成功したらキャッシュを更新して返す
+                if (!response || response.status !== 200 || response.type !== 'basic') {
+                    return response;
+                }
+                const responseToCache = response.clone();
+                caches.open(CACHE_NAME)
+                    .then((cache) => {
+                        cache.put(event.request, responseToCache);
+                    });
+                return response;
+            })
+            .catch(() => {
+                // ネットワーク失敗時はキャッシュを使用
+                return caches.match(event.request);
             })
     );
 });
