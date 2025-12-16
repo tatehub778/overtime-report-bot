@@ -273,6 +273,15 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
 
     // システムに残っているものは過剰報告
     for (const [key, systemRecord] of systemMap) {
+        // 登録済みの社員かチェック（登録外は無視）
+        const normalizedName = normalizeEmployeeName(systemRecord.employee);
+        const employeeMeta = employeesRef.map.get(normalizedName);
+
+        // マスタにない、または退職者（非アクティブ）は無視
+        if (!employeeMeta || !employeeMeta.active) {
+            continue;
+        }
+
         excess.push({
             date: systemRecord.date,
             employee: systemRecord.employee,

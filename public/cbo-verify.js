@@ -23,6 +23,12 @@ const newVerifyBtn = document.getElementById('new-verify-btn');
 
 // ページリセット
 function resetPage(clearMonth = true) {
+    if (clearMonth) {
+        location.reload();
+        return;
+    }
+
+    // 部分リセット（月変更時やデータなしの場合）
     selectedFile = null;
     verificationData = null;
     fileInput.value = '';
@@ -32,16 +38,12 @@ function resetPage(clearMonth = true) {
     uploadResult.style.display = 'none';
     resultSection.style.display = 'none';
     uploadArea.classList.remove('drag-over');
+    uploadArea.style.display = 'block'; // エリアを再表示
     document.getElementById('upload-section').style.display = 'block';
 
     // プログレスバーリセット
     progress.style.display = 'none';
     progressBar.style.width = '0%';
-
-    if (clearMonth) {
-        const now = new Date();
-        targetMonth.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    }
 }
 
 // グローバル変数
