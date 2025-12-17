@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 設定読み込み
 async function loadSettings() {
     try {
-        const response = await fetch('/api/settings');
+        const response = await fetch(`/api/settings?t=${Date.now()}`);
         if (response.ok) {
             const data = await response.json();
             const toggle = document.getElementById('lineNotifyToggle');
