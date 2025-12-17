@@ -306,6 +306,14 @@ async function getActiveEmployees() {
             }
         }
 
+        // display_order順にソート（なければ名前順）
+        employees.sort((a, b) => {
+            if (a.display_order !== undefined && b.display_order !== undefined) {
+                return a.display_order - b.display_order;
+            }
+            return a.name.localeCompare(b.name, 'ja');
+        });
+
         return employees;
     } catch (error) {
         console.error('Error fetching employees:', error);
