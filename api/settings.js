@@ -32,7 +32,8 @@ module.exports = async (req, res) => {
                 env_check: {
                     has_group_id: !!process.env.LINE_GROUP_ID,
                     has_access_token: !!process.env.LINE_CHANNEL_ACCESS_TOKEN,
-                    has_channel_secret: !!process.env.LINE_CHANNEL_SECRET
+                    has_channel_secret: !!process.env.LINE_CHANNEL_SECRET,
+                    has_gas_url: !!process.env.GAS_WEBHOOK_URL
                 }
             });
         } else if (req.method === 'POST') {

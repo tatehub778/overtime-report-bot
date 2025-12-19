@@ -46,6 +46,7 @@ async function loadSettings() {
                 debugHtml += `GROUP_ID: ${data.env_check?.has_group_id ? '✅ 設定済み' : '❌ 未設定'}<br>`;
                 debugHtml += `ACCESS_TOKEN: ${data.env_check?.has_access_token ? '✅ 設定済み' : '❌ 未設定'}<br>`;
                 debugHtml += `CHANNEL_SECRET: ${data.env_check?.has_channel_secret ? '✅ 設定済み' : '❌ 未設定'}<br>`;
+                debugHtml += `GAS_URL: ${data.env_check?.has_gas_url ? '✅ 設定済み(バックアップ有効)' : '❌ 未設定'}<br><br>`;
 
                 if (data.quota_status?.exceeded) {
                     debugHtml += `<div style="color:#dc2626; font-weight:bold; padding:8px; border:1px solid #dc2626; border-radius:4px; margin-top:12px; background:#fef2f2;">

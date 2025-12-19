@@ -100,6 +100,28 @@ module.exports = async (req, res) => {
             // LINE通知エラーでも報告は保存されているので続行
         }
 
+        // Googleスプレッドシート(GAS)へ送信（バックアップ）
+        const gasUrl = process.env.GAS_WEBHOOK_URL;
+        if (gasUrl) {
+            console.log('[SubmitReport] Attempting to send to Google Sheets...');
+            try {
+                const gasResponse = await fetch(gasUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date, reports, now })
+                });
+                if (gasResponse.ok) {
+                    console.log('✅ Sent to Google Sheets successfully');
+                } else {
+                    console.error('❌ Failed to send to Google Sheets:', gasResponse.statusText);
+                }
+            } catch (gasError) {
+                console.error('❌ Error sending to Google Sheets:', gasError);
+            }
+        } else {
+            console.log('[SubmitReport] GAS_WEBHOOK_URL not set, skipping backup');
+        }
+
         return res.status(200).json({
             success: true,
             reportCount: savedReports.length,
