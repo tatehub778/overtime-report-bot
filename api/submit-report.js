@@ -86,7 +86,16 @@ module.exports = async (req, res) => {
             console.log('[SubmitReport] LINE notification result:', result);
         } catch (lineError) {
             console.error('❌ LINE notification error:', lineError);
-            console.error('Error stack:', lineError.stack);
+
+            // 429エラー（上限達成）を検知してKVに記録
+            if (lineError.statusCode === 429 || (lineError.originalError && lineError.originalError.status === 429)) {
+                console.warn('⚠️ LINE Push Message Quota Exceeded (429)');
+                await kv.set('status:line_quota_exceeded', {
+                    exceeded: true,
+                    timestamp: new Date().toISOString()
+                }, { ex: 86400 * 7 }); // 1週間保持
+            }
+
             console.error('Error details:', JSON.stringify(lineError, null, 2));
             // LINE通知エラーでも報告は保存されているので続行
         }

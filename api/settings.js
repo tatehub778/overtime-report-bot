@@ -27,6 +27,7 @@ module.exports = async (req, res) => {
             return res.status(200).json({
                 line_notification_enabled: lineEnabled !== false, // Default to true if null/undefined
                 line_configured: !!process.env.LINE_GROUP_ID, // Check if ENV is set
+                quota_status: await kv.get('status:line_quota_exceeded'), // クォータ上限情報の取得
                 raw_value: lineEnabled, // デバッグ用に生の値も返す
                 env_check: {
                     has_group_id: !!process.env.LINE_GROUP_ID,

@@ -47,6 +47,14 @@ async function loadSettings() {
                 debugHtml += `ACCESS_TOKEN: ${data.env_check?.has_access_token ? '✅ 設定済み' : '❌ 未設定'}<br>`;
                 debugHtml += `CHANNEL_SECRET: ${data.env_check?.has_channel_secret ? '✅ 設定済み' : '❌ 未設定'}<br>`;
 
+                if (data.quota_status?.exceeded) {
+                    debugHtml += `<div style="color:#dc2626; font-weight:bold; padding:8px; border:1px solid #dc2626; border-radius:4px; margin-top:12px; background:#fef2f2;">
+                        ⚠️ LINE送信枠の上限超えを検知しました<br>
+                        <span style="font-size:0.9em; font-weight:normal;">(発生: ${new Date(data.quota_status.timestamp).toLocaleString()})</span><br>
+                        今月の無料枠を使い切った可能性があります。
+                    </div>`;
+                }
+
                 debugHtml += `<div style="margin-top:12px; display:flex; gap:8px;">
                     <button onclick="testNotification()" style="padding:6px 12px; background:#4f46e5; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px;">🔔 テスト通知を送信</button>
                     <button onclick="resetLineSettings()" style="padding:6px 12px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer; font-size:11px;">⚠️ 設定をリセット</button>
