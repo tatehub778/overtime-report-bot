@@ -113,11 +113,13 @@ async function sendLineNotification(date, reports, createdAt) {
         return;
     }
 
-    // **設定の確認** (New)
+    // **設定の確認**
     try {
         const lineEnabled = await kv.get('config:line_notification');
+        console.log(`[SubmitReport] config:line_notification = ${lineEnabled} (${typeof lineEnabled})`);
+
         if (lineEnabled === false) {
-            console.log('LINE notification disabled in settings, skipping.');
+            console.log('LINE notification disabled in settings (User Set OFF), skipping.');
             return;
         }
     } catch (confError) {

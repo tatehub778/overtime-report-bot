@@ -22,6 +22,51 @@ async function loadSettings() {
             if (toggle) {
                 toggle.checked = data.line_notification_enabled;
                 toggle.addEventListener('change', handleSettingChange);
+
+                // デバッグ情報の表示
+                const settingInfo = document.querySelector('.setting-info');
+
+                // 既存の警告・デバッグ情報を削除
+                const existingDebug = document.getElementById('line-debug-info');
+                if (existingDebug) existingDebug.remove();
+                const existingWarning = document.getElementById('line-warning');
+                if (existingWarning) existingWarning.remove();
+
+                // デバッグ情報を作成
+                const debugInfo = document.createElement('div');
+                debugInfo.id = 'line-debug-info';
+                debugInfo.style.fontSize = '0.75em';
+                debugInfo.style.marginTop = '8px';
+                debugInfo.style.padding = '8px';
+                debugInfo.style.background = '#f3f4f6';
+                debugInfo.style.borderRadius = '4px';
+                debugInfo.style.fontFamily = 'monospace';
+
+                let debugHtml = `<strong>🔍 デバッグ情報:</strong><br>`;
+                debugHtml += `設定値: ${data.raw_value} (型: ${typeof data.raw_value})<br>`;
+                debugHtml += `表示状態: ${data.line_notification_enabled ? 'ON' : 'OFF'}<br>`;
+                debugHtml += `GROUP_ID: ${data.env_check?.has_group_id ? '✅' : '❌'}<br>`;
+                debugHtml += `ACCESS_TOKEN: ${data.env_check?.has_access_token ? '✅' : '❌'}<br>`;
+                debugHtml += `CHANNEL_SECRET: ${data.env_check?.has_channel_secret ? '✅' : '❌'}<br>`;
+                debugHtml += `<button onclick="resetLineSettings()" style="margin-top:8px; padding:4px 8px; background:#ef4444; color:white; border:none; border-radius:4px; cursor:pointer;">⚠️ 設定をリセット</button>`;
+
+                debugInfo.innerHTML = debugHtml;
+                settingInfo.appendChild(debugInfo);
+
+                // 設定警告の表示
+                if (data.line_configured === false) {
+                    const warning = document.createElement('div');
+                    warning.id = 'line-warning';
+                    warning.style.color = '#dc2626';
+                    warning.style.fontSize = '0.85em';
+                    warning.style.marginTop = '4px';
+                    warning.style.fontWeight = 'bold';
+                    warning.innerHTML = '⚠️ LINE_GROUP_IDが設定されていないため、通知は送信されません';
+                    settingInfo.appendChild(warning);
+
+                    toggle.disabled = true; // 強制的に無効化表示
+                    toggle.checked = false;
+                }
             }
         }
     } catch (e) {
@@ -246,5 +291,29 @@ async function deleteEmployee(employeeId) {
     } catch (error) {
         console.error('Error deleting employee:', error);
         alert('❌ エラー: ' + error.message);
+    }
+}
+
+// LINE設定リセット
+async function resetLineSettings() {
+    if (!confirm('LINE通知設定をデフォルト（有効）にリセットしますか？')) return;
+
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error('Reset failed');
+        }
+
+        const result = await response.json();
+        alert(`✅ ${result.message}`);
+
+        // 設定を再読み込み
+        await loadSettings();
+    } catch (error) {
+        console.error('Failed to reset settings:', error);
+        alert('❌ リセットに失敗しました');
     }
 }
