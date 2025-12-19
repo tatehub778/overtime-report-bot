@@ -80,10 +80,14 @@ module.exports = async (req, res) => {
         }
 
         // LINE通知を送信
+        console.log('[SubmitReport] Attempting to send LINE notification...');
         try {
-            await sendLineNotification(date, reports, now);
+            const result = await sendLineNotification(date, reports, now);
+            console.log('[SubmitReport] LINE notification result:', result);
         } catch (lineError) {
-            console.error('LINE notification error:', lineError);
+            console.error('❌ LINE notification error:', lineError);
+            console.error('Error stack:', lineError.stack);
+            console.error('Error details:', JSON.stringify(lineError, null, 2));
             // LINE通知エラーでも報告は保存されているので続行
         }
 
@@ -101,17 +105,22 @@ module.exports = async (req, res) => {
 
 // LINE通知送信
 async function sendLineNotification(date, reports, createdAt) {
+    console.log('[sendLineNotification] START - date:', date, 'reports count:', reports.length);
+
     if (!client) {
-        console.log('LINE Bot not configured, skipping notification');
-        return;
+        console.log('❌ LINE Bot not configured, skipping notification');
+        return 'skipped: no client';
     }
+    console.log('✓ LINE client configured');
 
     // グループIDの確認
     const groupId = process.env.LINE_GROUP_ID;
+    console.log('[sendLineNotification] LINE_GROUP_ID:', groupId ? 'SET (hidden)' : 'NOT SET');
     if (!groupId) {
-        console.log('LINE_GROUP_ID not set, skipping notification');
-        return;
+        console.log('❌ LINE_GROUP_ID not set, skipping notification');
+        return 'skipped: no group id';
     }
+    console.log('✓ GROUP_ID configured');
 
     // NOTE: トグル設定を無効化 - 常に通知を送信
     // 以前のトグル実装で通知が届かなくなったため、この機能は無効化されています
@@ -131,13 +140,18 @@ async function sendLineNotification(date, reports, createdAt) {
         `報告時刻: ${new Date(createdAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`;
 
     // 特定のグループに送信
+    console.log('[sendLineNotification] Preparing to send message, length:', message.length);
     try {
         await client.pushMessage(groupId, {
             type: 'text',
             text: message
         });
-        console.log('LINE notification sent to group:', groupId);
+        console.log('✅ LINE notification sent successfully to group:', groupId);
+        return 'success';
     } catch (error) {
-        console.error('Failed to send LINE notification:', error);
+        console.error('❌ Failed to send LINE notification:', error);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        throw error;
     }
 }
