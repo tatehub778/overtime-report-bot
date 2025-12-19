@@ -220,7 +220,7 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
     const discrepancies = []; // 両方にあるが時間が違う
     const matches = [];      // 一致
 
-    const TOLERANCE = 0.5; // 許容誤差（時間）
+    const TOLERANCE = 0; // 許容誤差（時間）
 
     // CBOレコードをチェック
     for (const [key, cboRecord] of cboMap) {
