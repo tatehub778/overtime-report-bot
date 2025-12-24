@@ -554,13 +554,15 @@ function detectMissingDays(month, cboRecords, employeesRef) {
     const holidays = [];
     const missingThreshold = 5; // 5人以上未入力なら休日
 
-    const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '/'); // YYYY/MM/DD
+    // JSTでの「今日」を取得
+    const nowJST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+    const todayStr = `${nowJST.getFullYear()}/${String(nowJST.getMonth() + 1).padStart(2, '0')}/${String(nowJST.getDate()).padStart(2, '0')}`;
 
     for (const dateStr of allDates) {
         // 未来日は判定対象外にする（今日より後の日付ならスキップ）
         if (dateStr > todayStr) continue;
 
-        // 実際に打刻（has_punch）がある人のみを取得
+        // 実際に打刻（has_punch）がある人のみを取得（休暇等の理由は「打刻」には含めない）
         const recordedPunchSet = new Set();
         for (const record of cboRecords) {
             const normalizedDate = formatDateFromReport(record.date);
@@ -575,6 +577,7 @@ function detectMissingDays(month, cboRecords, employeesRef) {
         const dayOfWeek = date.getDay(); // 0=日, 6=土
 
         // 休日判定: 実際に打刻した人が5人未満なら休日とみなす
+        // 注意: 有給者の行があっても、実打刻(has_punch)がなければここでのカウントには含まれない
         if (recordCount < missingThreshold) {
             holidays.push({
                 date: dateStr,
@@ -584,9 +587,10 @@ function detectMissingDays(month, cboRecords, employeesRef) {
                 reason: `${recordCount}人のみ実打刻のため休日判定`
             });
         } else {
-            // 出勤日: CBOにレコード自体がない、またはあっても打刻（D-F列）がない人を特定
+            // 出勤日: CBOにレコード自体がない、またはあっても打刻（D-F列）も理由（N, O列）もない人を特定
             const recordedEmployees = new Set();
             for (const record of cboRecords) {
+                // 出勤日として扱う場合は、打刻があるか、または休暇理由がある場合
                 if (formatDateFromReport(record.date) === dateStr && (record.has_punch || record.has_reason)) {
                     recordedEmployees.add(normalizeEmployeeName(record.employee));
                 }

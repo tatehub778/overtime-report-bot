@@ -63,6 +63,138 @@ header h1 {
     padding-bottom: 10px;
 }
 
+/* 案内メッセージボックス (Info Board) */
+.info-board {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 0;
+    margin-bottom: 35px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+    animation: slideInUp 0.6s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.info-board-header {
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    color: white;
+    padding: 15px 25px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.info-board-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    border: none;
+    padding: 0;
+    color: white;
+}
+
+.info-icon {
+    font-size: 1.5rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.info-board-body {
+    padding: 25px;
+    color: #2d3748;
+    line-height: 1.7;
+}
+
+.highlight-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #4a5568;
+    margin-bottom: 20px;
+}
+
+.check-points {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.point {
+    background: #f7fafc;
+    border: 1px solid #e2e8f0;
+    padding: 12px 18px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 250px;
+    transition: all 0.2s;
+}
+
+.point:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #667eea;
+}
+
+.point-icon {
+    font-size: 1.2rem;
+}
+
+.point-text {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.caution-box {
+    background: #fffaf0;
+    border-left: 5px solid #ed8936;
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.caution-box p {
+    margin: 0;
+    color: #7b341e;
+}
+
+.caution-box strong {
+    color: #c05621;
+}
+
+.next-step-box {
+    background: #f0fff4;
+    border-left: 5px solid #48bb78;
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.next-step-box p {
+    margin: 0;
+    color: #22543d;
+}
+
+.next-step-box strong {
+    color: #276749;
+    text-decoration: underline;
+}
+
 /* 月選択 */
 .month-selector {
     margin-bottom: 20px;
