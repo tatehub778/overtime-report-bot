@@ -554,12 +554,18 @@ function detectMissingDays(month, cboRecords, employeesRef) {
     const holidays = [];
     const missingThreshold = 5; // 5人以上未入力なら休日
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     for (const dateStr of allDates) {
+        const date = new Date(dateStr);
+        // 未来日は判定対象外にする（今日より後ならスキップ）
+        if (date > today) continue;
+
         // 正規化された日付でSetを取得
         const recordedSet = dateRecordedEmployees.get(dateStr) || new Set();
         const recordCount = recordedSet.size; // ユニークな打刻人数
         const missingCount = activeEmployeeCount - recordCount;
-        const date = new Date(dateStr);
         const dayOfWeek = date.getDay(); // 0=日, 6=土
 
         // 休日判定: 打刻者が5人未満なら休日とみなす

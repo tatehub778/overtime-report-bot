@@ -696,24 +696,24 @@ function displayDetailList(elementId, items, type) {
             `;
         } else if (type === 'discrepancy') {
             html += `
-            < div class="detail-item ${type}" >
+            <div class="detail-item ${type}">
           <span class="date">${item.date}</span>
           <span class="employee">${item.employee}</span>
           <span class="hours">
             CBO: ${item.cbo_hours}h / システム: ${item.system_hours}h 
             (差: ${item.difference > 0 ? '+' : ''}${item.difference}h)
           </span>
-        </div >
+        </div>
             `;
         } else {
             html += `
-            < div class="detail-item ${type}" >
+            <div class="detail-item ${type}">
           <span class="date">${item.date}</span>
           <span class="employee">${item.employee}</span>
           <span class="hours">
             CBO: ${item.cbo_hours}h / システム: ${item.system_hours}h
           </span>
-        </div >
+        </div>
             `;
         }
     });
@@ -768,7 +768,7 @@ function renderSystemDetails(record, employeeName) {
 
     let html = '<div class="system-details-list">';
     html += record.system_details.map(detail => `
-            < div class="system-detail-item" >
+            <div class="system-detail-item">
             <span style="color: #666; font-size: 0.9em;">
                 📝 システム報告: <strong>${detail.category}</strong> ${detail.hours}h
             </span>
@@ -776,7 +776,7 @@ function renderSystemDetails(record, employeeName) {
                 <button class="btn-sm btn-edit" onclick="openEditReport('${detail.id}', '${record.date}', '${employeeName}', '${detail.category}', ${detail.hours})">編集</button>
                 <button class="btn-sm btn-delete" onclick="deleteReport('${detail.id}')">削除</button>
             </div>
-        </div >
+        </div>
             `).join('');
     html += '</div>';
     return html;
