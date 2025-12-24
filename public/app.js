@@ -6,8 +6,9 @@ const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const errorText = document.getElementById('errorText');
 
-// 今日の日付をセット
-const today = new Date().toISOString().split('T')[0];
+// 今日の日付をセット (JST)
+const nowJST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+const today = `${nowJST.getFullYear()}-${String(nowJST.getMonth() + 1).padStart(2, '0')}-${String(nowJST.getDate()).padStart(2, '0')}`;
 dateInput.value = today;
 
 // 社員リスト読み込み
