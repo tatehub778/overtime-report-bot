@@ -175,11 +175,13 @@ body {
 /* カテゴリコンテナ */
 .categories-container {
     display: none;
-    padding: 12px 16px 12px 46px;
+    padding: 12px 16px 12px 32px;
+    /* モバイルでは左パディングを少し削る */
     background: rgba(16, 185, 129, 0.05);
-    border-radius: 8px;
-    border-left: 3px solid #10b981;
+    border-radius: 12px;
+    border-left: 4px solid #10b981;
     animation: slideIn 0.3s ease;
+    margin-top: 4px;
 }
 
 /* カテゴリ行 */
@@ -223,9 +225,9 @@ body {
 }
 
 .hours-unit {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #6b7280;
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
 }
 
@@ -506,5 +508,62 @@ body {
 @media (max-width: 480px) {
     .checkbox-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+
+    .header {
+        padding: 24px 15px;
+        margin-bottom: 20px;
+    }
+
+    .title {
+        font-size: 1.8rem;
+    }
+
+    .main {
+        padding: 20px 15px;
+    }
+
+    .form {
+        gap: 20px;
+    }
+
+    .categories-container {
+        padding: 10px 10px 10px 20px;
+        margin-left: 10px;
+    }
+
+    .category-row {
+        flex-wrap: wrap;
+        /* スマホでは折り返しを許容 */
+    }
+
+    .category-select {
+        flex: 1 1 100%;
+        /* 全幅 */
+    }
+
+    .hours-input {
+        flex: 1;
+    }
+
+    .submit-btn {
+        padding: 15px;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 375px) {
+    .title {
+        font-size: 1.5rem;
+    }
+
+    .checkbox-text {
+        font-size: 0.85rem;
     }
 }
