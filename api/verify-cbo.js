@@ -458,12 +458,16 @@ function normalizeEmployeeName(name) {
     return normalized.trim();
 }
 /**
- * システムの日付形式 (YYYY-MM-DD) を CBO形式 (YYYY/MM/DD) に変換
+ * システムの日付形式 (YYYY-MM-DD or YYYY/M/D) を CBO形式 (YYYY/MM/DD) に変換し、0埋めを保証
  */
 function formatDateFromReport(dateStr) {
     if (!dateStr) return '';
-    // YYYY-MM-DD → YYYY/MM/DD
-    return dateStr.replace(/-/g, '/');
+    const parts = dateStr.split(/[-/]/);
+    if (parts.length !== 3) return dateStr;
+    const y = parts[0];
+    const m = parts[1].padStart(2, '0');
+    const d = parts[2].padStart(2, '0');
+    return `${y}/${m}/${d}`;
 }
 
 /**
@@ -484,31 +488,28 @@ function detectMissingDays(month, cboRecords, employeesRef) {
         allDates.push(dateStr);
     }
 
-    // 2. アクティブな従業員数を取得
+    // 2. アクティブな従業員名リストを取得
     const activeEmployees = employeesRef.list.filter(name => {
         const meta = employeesRef.map.get(name);
         return meta && meta.active;
     });
     const activeEmployeeCount = activeEmployees.length;
 
-    // 3. 各日付の記録人数をカウント（従業員名を正規化）
-    const dateRecordCounts = new Map();
+    // 3. 各日付の打刻状況を把握（日付形式と名前を正規化）
     const dateRecordedEmployees = new Map();
 
     for (const record of cboRecords) {
+        // CBOの日付も 0埋め YYYY/MM/DD に正規化して比較漏れを防ぐ
+        const normalizedDate = formatDateFromReport(record.date);
         const normalizedName = normalizeEmployeeName(record.employee);
         const meta = employeesRef.map.get(normalizedName);
 
-        // アクティブな従業員のみカウント
+        // アクティブな従業員の打刻のみをカウント
         if (meta && meta.active) {
-            const count = dateRecordCounts.get(record.date) || 0;
-            dateRecordCounts.set(record.date, count + 1);
-
-            // この日に記録した従業員を記録
-            if (!dateRecordedEmployees.has(record.date)) {
-                dateRecordedEmployees.set(record.date, new Set());
+            if (!dateRecordedEmployees.has(normalizedDate)) {
+                dateRecordedEmployees.set(normalizedDate, new Set());
             }
-            dateRecordedEmployees.get(record.date).add(normalizedName);
+            dateRecordedEmployees.get(normalizedDate).add(normalizedName);
         }
     }
 
@@ -518,7 +519,9 @@ function detectMissingDays(month, cboRecords, employeesRef) {
     const missingThreshold = 5; // 5人以上未入力なら休日
 
     for (const dateStr of allDates) {
-        const recordCount = dateRecordCounts.get(dateStr) || 0;
+        // 正規化された日付でSetを取得
+        const recordedSet = dateRecordedEmployees.get(dateStr) || new Set();
+        const recordCount = recordedSet.size; // ユニークな打刻人数
         const missingCount = activeEmployeeCount - recordCount;
         const date = new Date(dateStr);
         const dayOfWeek = date.getDay(); // 0=日, 6=土
@@ -530,12 +533,11 @@ function detectMissingDays(month, cboRecords, employeesRef) {
                 recordCount,
                 missingCount,
                 dayOfWeek,
-                reason: `${missingCount}人が未入力のため休日と判定`
+                reason: `${missingCount}人が未入力のため休日判定`
             });
         } else {
-            // 出勤日: 未入力の従業員を特定
-            const recordedEmployees = dateRecordedEmployees.get(dateStr) || new Set();
-            const missingEmployees = activeEmployees.filter(name => !recordedEmployees.has(name));
+            // 出勤日: 打刻していない人を特定
+            const missingEmployees = activeEmployees.filter(name => !recordedSet.has(name));
 
             if (missingEmployees.length > 0) {
                 missingDays.push({
@@ -543,28 +545,25 @@ function detectMissingDays(month, cboRecords, employeesRef) {
                     recordCount,
                     missingCount: missingEmployees.length,
                     dayOfWeek,
-                    missingEmployees: missingEmployees // 未入力の従業員リスト
+                    missingEmployees: missingEmployees
                 });
             }
         }
     }
 
-    // 5. 従業員ごとの未入力日をまとめる
+    // 5. 従業員ごとの未入力日を整理
     const byEmployee = new Map();
-    for (const employee of activeEmployees) {
-        byEmployee.set(employee, []);
-    }
+    activeEmployees.forEach(employee => byEmployee.set(employee, []));
 
-    for (const missingDay of missingDays) {
-        for (const employee of missingDay.missingEmployees) {
+    missingDays.forEach(missingDay => {
+        missingDay.missingEmployees.forEach(employee => {
             byEmployee.get(employee).push({
                 date: missingDay.date,
                 dayOfWeek: missingDay.dayOfWeek
             });
-        }
-    }
+        });
+    });
 
-    // 未入力日がある従業員のみを抽出
     const employeeMissingDays = [];
     for (const [employee, days] of byEmployee.entries()) {
         if (days.length > 0) {
@@ -584,7 +583,7 @@ function detectMissingDays(month, cboRecords, employeesRef) {
         holidayDetails: holidays.sort((a, b) => a.date.localeCompare(b.date)),
         activeEmployeeCount,
         threshold: missingThreshold,
-        byEmployee: employeeMissingDays // 従業員ごとの未入力日リスト
+        byEmployee: employeeMissingDays
     };
 }
 
