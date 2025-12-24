@@ -634,13 +634,13 @@ function displayDebugInfo(debug) {
     // UIに表示（折りたたみ可能）
     let debugHTML = `
         <div style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; font-size: 14px;">
-                    <details>
-                        <summary style="cursor: pointer; font-weight: 600; margin-bottom: 10px;">
-                            🔧 デバッグ情報（クリックして展開）
-                        </summary>
-                        <div style="padding: 10px; background: white; border-radius: 4px; font-family: monospace;">
-                            <p><strong>システムレポート総数:</strong> ${debug.total_system_reports}件</p>
-                            `;
+            <details>
+                <summary style="cursor: pointer; font-weight: 600; margin-bottom: 10px;">
+                    🔧 デバッグ情報（クリックして展開）
+                </summary>
+                    <div style="padding: 10px; background: white; border-radius: 4px; font-family: monospace;">
+                        <p><strong>システムレポート総数:</strong> ${debug.total_system_reports}件</p>
+                        `;
 
     if (debug.sample_system_report) {
         debugHTML += `
@@ -657,10 +657,10 @@ function displayDebugInfo(debug) {
     }
 
     debugHTML += `
-                        </div>
-                    </details>
-        </div >
-                `;
+                    </div>
+            </details>
+        </div>
+            `;
 
     // result-section の最後に追加
     const resultSection = document.getElementById('result-section');
@@ -688,15 +688,15 @@ function displayDetailList(elementId, items, type) {
     items.forEach(item => {
         if (type === 'match') {
             html += `
-                < div class="detail-item" >
+                <div class="detail-item">
           <span class="date">${item.date}</span>
           <span class="employee">${item.employee}</span>
           <span class="hours">${item.hours}時間</span>
-        </div >
-                `;
+        </div>
+            `;
         } else if (type === 'discrepancy') {
             html += `
-                < div class="detail-item ${type}" >
+            < div class="detail-item ${type}" >
           <span class="date">${item.date}</span>
           <span class="employee">${item.employee}</span>
           <span class="hours">
@@ -704,17 +704,17 @@ function displayDetailList(elementId, items, type) {
             (差: ${item.difference > 0 ? '+' : ''}${item.difference}h)
           </span>
         </div >
-                `;
+            `;
         } else {
             html += `
-                < div class="detail-item ${type}" >
+            < div class="detail-item ${type}" >
           <span class="date">${item.date}</span>
           <span class="employee">${item.employee}</span>
           <span class="hours">
             CBO: ${item.cbo_hours}h / システム: ${item.system_hours}h
           </span>
         </div >
-                `;
+            `;
         }
     });
 
@@ -768,7 +768,7 @@ function renderSystemDetails(record, employeeName) {
 
     let html = '<div class="system-details-list">';
     html += record.system_details.map(detail => `
-                < div class="system-detail-item" >
+            < div class="system-detail-item" >
             <span style="color: #666; font-size: 0.9em;">
                 📝 システム報告: <strong>${detail.category}</strong> ${detail.hours}h
             </span>
@@ -777,7 +777,7 @@ function renderSystemDetails(record, employeeName) {
                 <button class="btn-sm btn-delete" onclick="deleteReport('${detail.id}')">削除</button>
             </div>
         </div >
-                `).join('');
+            `).join('');
     html += '</div>';
     return html;
 }
