@@ -307,11 +307,42 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
         time_discrepancies: discrepancies.length
     };
 
+    // 未入力日を検出
+    const missingDaysInfo = detectMissingDays(month, cboRecords, employeesRef);
+
     // 従業員ごとにグループ化
     const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef);
 
-    // 未入力日を検出
-    const missingDaysInfo = detectMissingDays(month, cboRecords, employeesRef);
+    // 「打刻自体なし」のレコードを各従業員のリストに挿入
+    if (missingDaysInfo && missingDaysInfo.byEmployee) {
+        missingDaysInfo.byEmployee.forEach(empMissing => {
+            const target = byEmployee.find(b => b.employee === empMissing.employee);
+            if (target) {
+                empMissing.missingDays.forEach(day => {
+                    // システム報告がある日は「過剰報告」として既にリストにあるはずなので、
+                    // システム報告もない日だけを「打刻自体なし」として追加
+                    const alreadyHasRecord = target.records.some(r => r.date === day.date);
+                    if (!alreadyHasRecord) {
+                        target.records.push({
+                            date: day.date,
+                            status: 'no_punch',
+                            icon: '❌',
+                            cbo_hours: 0,
+                            system_hours: 0,
+                            difference: 0,
+                            category: '',
+                            system_details: [],
+                            self_checked: false,
+                            admin_checked: false
+                        });
+                        target.issues++; // 課題件数としてカウント
+                    }
+                });
+                // 日付順に再ソート
+                target.records.sort((a, b) => a.date.localeCompare(b.date));
+            }
+        });
+    }
 
     return {
         month,
@@ -531,14 +562,14 @@ function detectMissingDays(month, cboRecords, employeesRef) {
         const date = new Date(dateStr);
         const dayOfWeek = date.getDay(); // 0=日, 6=土
 
-        // 休日判定: 5人以上未入力なら休日とみなす
-        if (missingCount >= missingThreshold) {
+        // 休日判定: 打刻者が5人未満なら休日とみなす
+        if (recordCount < missingThreshold) {
             holidays.push({
                 date: dateStr,
                 recordCount,
                 missingCount,
                 dayOfWeek,
-                reason: `${missingCount}人が未入力のため休日判定`
+                reason: `${recordCount}人のみ打刻のため休日判定`
             });
         } else {
             // 出勤日: 打刻していない人を特定

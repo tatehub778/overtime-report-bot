@@ -544,7 +544,7 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                     <div style="display: flex; gap: 10px; font-size: 13px;">
                         <span style="color: #10B981;">✅ ${emp.matches}件</span>
                         ${emp.issues > 0 ? `<span style="color: #EF4444; font-weight: 600;">⚠️ ${emp.issues}件</span>` : ''}
-                        ${hasMissingDays ? `<span style="color: #F59E0B; font-weight: 600;">📅 未入力${empMissingInfo.count}日</span>` : ''}
+                        ${hasMissingDays ? `<span style="color: #EF4444; font-weight: 600;">❌ 打刻なし${empMissingInfo.count}日</span>` : ''}
                     </div>
                 </div>
                 <div style="border-top: 1px solid #E5E7EB; padding-top: 10px;">
@@ -556,7 +556,8 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                 'match': '#10B981',
                 'discrepancy': '#F59E0B',
                 'excess': '#EF4444',
-                'missing': '#F59E0B'
+                'missing': '#F59E0B',
+                'no_punch': '#EF4444' // 赤色で強調
             }[record.status] || '#6B7280';
 
             let statusText = '';
@@ -568,6 +569,8 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                 statusText = `過剰報告 CBO: ${record.cbo_hours}h / システム: ${record.system_hours}h`;
             } else if (record.status === 'missing') {
                 statusText = `未報告 CBO: ${record.cbo_hours}h / システム: ${record.system_hours}h`;
+            } else if (record.status === 'no_punch') {
+                statusText = '打刻自体なし（CBO・システムともに記録なし）';
             }
 
             html += `
@@ -612,35 +615,6 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
             `;
         });
 
-        // 未入力日の一覧を表示
-        if (hasMissingDays) {
-            html += '<div style="margin-top: 15px; padding: 10px; background: #FFFBEB; border-radius: 6px; border: 1px solid #FDE68A;">';
-            html += '<h4 style="margin: 0 0 8px 0; font-size: 14px; color: #92400E;">📅 勤怠未入力（出勤日）</h4>';
-            html += '<div style="display: flex; flex-wrap: wrap; gap: 8px;">';
-
-            const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
-            empMissingInfo.missingDays.forEach(m => {
-                const dateLabel = m.date.substring(5); // MM/DD
-                const dayLabel = dayNames[m.dayOfWeek];
-                const isWeekend = m.dayOfWeek === 0 || m.dayOfWeek === 6;
-
-                html += `
-                    <span style="
-                        padding: 2px 8px;
-                        background: ${isWeekend ? '#FEF3C7' : '#FEE2E2'};
-                        color: ${isWeekend ? '#92400E' : '#B91C1C'};
-                        border: 1px solid ${isWeekend ? '#FDE68A' : '#FECACA'};
-                        border-radius: 4px;
-                        font-size: 12px;
-                        font-weight: 500;
-                    ">
-                        ${dateLabel} (${dayLabel})${isWeekend ? ' ⚠️' : ''}
-                    </span>
-                `;
-            });
-            html += '</div></div>';
-        }
-
         html += `
                 </div>
             </div>
@@ -660,13 +634,13 @@ function displayDebugInfo(debug) {
     // UIに表示（折りたたみ可能）
     let debugHTML = `
         <div style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; font-size: 14px;">
-            <details>
-                <summary style="cursor: pointer; font-weight: 600; margin-bottom: 10px;">
-                    🔧 デバッグ情報（クリックして展開）
-                </summary>
-                <div style="padding: 10px; background: white; border-radius: 4px; font-family: monospace;">
-                    <p><strong>システムレポート総数:</strong> ${debug.total_system_reports}件</p>
-    `;
+                    <details>
+                        <summary style="cursor: pointer; font-weight: 600; margin-bottom: 10px;">
+                            🔧 デバッグ情報（クリックして展開）
+                        </summary>
+                        <div style="padding: 10px; background: white; border-radius: 4px; font-family: monospace;">
+                            <p><strong>システムレポート総数:</strong> ${debug.total_system_reports}件</p>
+                            `;
 
     if (debug.sample_system_report) {
         debugHTML += `
@@ -683,10 +657,10 @@ function displayDebugInfo(debug) {
     }
 
     debugHTML += `
-                </div>
-            </details>
-        </div>
-    `;
+                        </div>
+                    </details>
+        </div >
+                `;
 
     // result-section の最後に追加
     const resultSection = document.getElementById('result-section');
@@ -714,33 +688,33 @@ function displayDetailList(elementId, items, type) {
     items.forEach(item => {
         if (type === 'match') {
             html += `
-        <div class="detail-item">
+                < div class="detail-item" >
           <span class="date">${item.date}</span>
           <span class="employee">${item.employee}</span>
           <span class="hours">${item.hours}時間</span>
-        </div>
-      `;
+        </div >
+                `;
         } else if (type === 'discrepancy') {
             html += `
-        <div class="detail-item ${type}">
+                < div class="detail-item ${type}" >
           <span class="date">${item.date}</span>
           <span class="employee">${item.employee}</span>
           <span class="hours">
             CBO: ${item.cbo_hours}h / システム: ${item.system_hours}h 
             (差: ${item.difference > 0 ? '+' : ''}${item.difference}h)
           </span>
-        </div>
-      `;
+        </div >
+                `;
         } else {
             html += `
-        <div class="detail-item ${type}">
+                < div class="detail-item ${type}" >
           <span class="date">${item.date}</span>
           <span class="employee">${item.employee}</span>
           <span class="hours">
             CBO: ${item.cbo_hours}h / システム: ${item.system_hours}h
           </span>
-        </div>
-      `;
+        </div >
+                `;
         }
     });
 
@@ -758,17 +732,17 @@ function handleExport() {
 
     // 未報告
     verificationData.details.missing.forEach(item => {
-        csv += `未報告,${item.date},${item.employee},${item.cbo_hours},${item.system_hours},-\n`;
+        csv += `未報告, ${item.date},${item.employee},${item.cbo_hours},${item.system_hours}, -\n`;
     });
 
     // 過剰報告
     verificationData.details.excess.forEach(item => {
-        csv += `過剰報告,${item.date},${item.employee},${item.cbo_hours},${item.system_hours},-\n`;
+        csv += `過剰報告, ${item.date},${item.employee},${item.cbo_hours},${item.system_hours}, -\n`;
     });
 
     // 時間ずれ
     verificationData.details.discrepancies.forEach(item => {
-        csv += `時間ずれ,${item.date},${item.employee},${item.cbo_hours},${item.system_hours},${item.difference}\n`;
+        csv += `時間ずれ, ${item.date},${item.employee},${item.cbo_hours},${item.system_hours},${item.difference} \n`;
     });
 
     // ダウンロード
@@ -794,7 +768,7 @@ function renderSystemDetails(record, employeeName) {
 
     let html = '<div class="system-details-list">';
     html += record.system_details.map(detail => `
-        <div class="system-detail-item">
+                < div class="system-detail-item" >
             <span style="color: #666; font-size: 0.9em;">
                 📝 システム報告: <strong>${detail.category}</strong> ${detail.hours}h
             </span>
@@ -802,8 +776,8 @@ function renderSystemDetails(record, employeeName) {
                 <button class="btn-sm btn-edit" onclick="openEditReport('${detail.id}', '${record.date}', '${employeeName}', '${detail.category}', ${detail.hours})">編集</button>
                 <button class="btn-sm btn-delete" onclick="deleteReport('${detail.id}')">削除</button>
             </div>
-        </div>
-    `).join('');
+        </div >
+                `).join('');
     html += '</div>';
     return html;
 }
