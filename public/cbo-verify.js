@@ -323,12 +323,17 @@ function displayVerificationResult(data, fromCache = false) {
     document.getElementById('excess-count').textContent = data.summary.excess_reports;
     document.getElementById('discrepancy-count').textContent = data.summary.time_discrepancies;
 
+    // 未入力日カードを追加
+    if (data.missing_days && data.missing_days.missingDays && data.missing_days.missingDays.length > 0) {
+        addMissingDaysCard(data.missing_days);
+    }
+
     // キャッシュステータス表示
     displayCacheStatus(fromCache, data.verified_at);
 
     // 従業員ごとの表示に切り替え
     if (data.by_employee) {
-        displayByEmployee(data.by_employee);
+        displayByEmployee(data.by_employee, data.missing_days);
     } else {
         // フォールバック: 従来の表示
         displayDetailList('missing-list', data.details.missing, 'missing');
@@ -413,8 +418,87 @@ function displayCacheStatus(fromCache, verifiedAt) {
     `;
 }
 
+// 未入力日サマリーカードを追加
+function addMissingDaysCard(missingDaysInfo) {
+    const summaryCardsContainer = document.querySelector('.summary-cards');
+
+    // 既存の未入力日カードを削除
+    const existingCard = summaryCardsContainer.querySelector('.missing-days-card');
+    if (existingCard) {
+        existingCard.remove();
+    }
+
+    const missingDayCard = document.createElement('div');
+    missingDayCard.className = 'summary-card card-warning missing-days-card';
+    missingDayCard.innerHTML = `
+        <div class="card-icon">📅</div>
+        <div class="card-content">
+            <h3>未入力日</h3>
+            <p class="card-value">${missingDaysInfo.missingDays.length}</p>
+            <p class="card-desc">出勤日で記録漏れあり</p>
+        </div>
+    `;
+    summaryCardsContainer.appendChild(missingDayCard);
+}
+
+// 未入力日の詳細セクションを表示
+function displayMissingDaysSection(missingDaysInfo) {
+    if (!missingDaysInfo || !missingDaysInfo.missingDays || missingDaysInfo.missingDays.length === 0) {
+        return '';
+    }
+
+    const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+
+    let html = `
+        <div class="detail-section" style="margin-bottom: 30px;">
+            <h3 class="detail-title">📅 未入力日（出勤日で記録漏れあり）</h3>
+            <div class="detail-content">
+                <div style="background: #FEF3C7; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #92400E; font-size: 14px;">
+                        <strong>✨ 休日自動判定:</strong> ${missingDaysInfo.threshold}人未満の記録しかない日は休日として除外しています
+                    </p>
+                    <p style="margin: 5px 0 0 0; color: #92400E; font-size: 13px;">
+                        検出された休日: ${missingDaysInfo.holidays}日 / 対象月の日数: ${missingDaysInfo.totalDays}日 / 出勤日: ${missingDaysInfo.workDays}日
+                    </p>
+                </div>
+    `;
+
+    missingDaysInfo.missingDays.forEach(item => {
+        const dayOfWeek = dayNames[item.dayOfWeek];
+        const isWeekend = item.dayOfWeek === 0 || item.dayOfWeek === 6;
+
+        html += `
+            <div style="
+                padding: 12px;
+                border-left: 4px solid ${isWeekend ? '#F59E0B' : '#EF4444'};
+                background: ${isWeekend ? '#FFFBEB' : '#FEF2F2'};
+                margin-bottom: 8px;
+                border-radius: 4px;
+            ">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-weight: 600; color: #1F2937;">${item.date.substring(5)} (${dayOfWeek})</span>
+                        ${isWeekend ? '<span style="color: #F59E0B; margin-left: 8px;">⚠️ 土日</span>' : ''}
+                    </div>
+                    <div style="font-size: 0.9em; color: #6B7280;">
+                        記録: ${item.recordCount}人 / 未記録: ${item.missingCount}人
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `
+            </div>
+        </div>
+    `;
+
+    return html;
+}
+
+
 // 従業員ごとの表示
-function displayByEmployee(byEmployee) {
+function displayByEmployee(byEmployee, missingDaysInfo) {
     // 既存のセクションを非表示
     const missingSec = document.getElementById('missing-section');
     const excessSec = document.getElementById('excess-section');
@@ -434,7 +518,14 @@ function displayByEmployee(byEmployee) {
         resultSection.insertBefore(employeeSection, resultSection.querySelector('.debug-info') || resultSection.firstChild);
     }
 
-    let html = '<h2 style="margin: 20px 0;">メンバー別検証結果</h2>';
+    let html = '';
+
+    // 未入力日セクションを追加
+    if (missingDaysInfo && missingDaysInfo.missingDays && missingDaysInfo.missingDays.length > 0) {
+        html += displayMissingDaysSection(missingDaysInfo);
+    }
+
+    html += '<h2 style="margin: 20px 0;">メンバー別検証結果</h2>';
 
     byEmployee.forEach(emp => {
         const statusClass = emp.issues > 0 ? 'has-issues' : 'all-good';
