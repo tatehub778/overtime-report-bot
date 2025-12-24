@@ -517,25 +517,26 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
         employeeSection.className = 'employee-grouped-section';
         resultSection.insertBefore(employeeSection, resultSection.querySelector('.debug-info') || resultSection.firstChild);
     }
-
     let html = '';
-
-    // 未入力日セクションを追加
-    if (missingDaysInfo && missingDaysInfo.missingDays && missingDaysInfo.missingDays.length > 0) {
-        html += displayMissingDaysSection(missingDaysInfo);
-    }
-
     html += '<h2 style="margin: 20px 0;">メンバー別検証結果</h2>';
 
     byEmployee.forEach(emp => {
-        const statusClass = emp.issues > 0 ? 'has-issues' : 'all-good';
+        // 未入力日情報を取得
+        const empMissingInfo = missingDaysInfo && missingDaysInfo.byEmployee
+            ? missingDaysInfo.byEmployee.find(m => m.employee === emp.employee)
+            : null;
+        const hasMissingDays = empMissingInfo && empMissingInfo.count > 0;
+
+        const statusClass = (emp.issues > 0 || hasMissingDays) ? 'has-issues' : 'all-good';
+        const borderColor = (emp.issues > 0 || hasMissingDays) ? '#EF4444' : '#10B981';
+
         html += `
             <div class="employee-card ${statusClass}" style="
                 margin: 15px 0;
                 padding: 15px;
                 border-radius: 8px;
                 background: white;
-                border-left: 4px solid ${emp.issues > 0 ? '#EF4444' : '#10B981'};
+                border-left: 4px solid ${borderColor};
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             ">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -543,6 +544,7 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                     <div style="display: flex; gap: 10px; font-size: 13px;">
                         <span style="color: #10B981;">✅ ${emp.matches}件</span>
                         ${emp.issues > 0 ? `<span style="color: #EF4444; font-weight: 600;">⚠️ ${emp.issues}件</span>` : ''}
+                        ${hasMissingDays ? `<span style="color: #F59E0B; font-weight: 600;">📅 未入力${empMissingInfo.count}日</span>` : ''}
                     </div>
                 </div>
                 <div style="border-top: 1px solid #E5E7EB; padding-top: 10px;">
@@ -609,6 +611,35 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                 </div>
             `;
         });
+
+        // 未入力日の一覧を表示
+        if (hasMissingDays) {
+            html += '<div style="margin-top: 15px; padding: 10px; background: #FFFBEB; border-radius: 6px; border: 1px solid #FDE68A;">';
+            html += '<h4 style="margin: 0 0 8px 0; font-size: 14px; color: #92400E;">📅 勤怠未入力（出勤日）</h4>';
+            html += '<div style="display: flex; flex-wrap: wrap; gap: 8px;">';
+
+            const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+            empMissingInfo.missingDays.forEach(m => {
+                const dateLabel = m.date.substring(5); // MM/DD
+                const dayLabel = dayNames[m.dayOfWeek];
+                const isWeekend = m.dayOfWeek === 0 || m.dayOfWeek === 6;
+
+                html += `
+                    <span style="
+                        padding: 2px 8px;
+                        background: ${isWeekend ? '#FEF3C7' : '#FEE2E2'};
+                        color: ${isWeekend ? '#92400E' : '#B91C1C'};
+                        border: 1px solid ${isWeekend ? '#FDE68A' : '#FECACA'};
+                        border-radius: 4px;
+                        font-size: 12px;
+                        font-weight: 500;
+                    ">
+                        ${dateLabel} (${dayLabel})${isWeekend ? ' ⚠️' : ''}
+                    </span>
+                `;
+            });
+            html += '</div></div>';
+        }
 
         html += `
                 </div>

@@ -339,6 +339,16 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
     });
     cboRecords.forEach(r => encounteredEmployees.add(r.employee));
 
+    // 在籍（アクティブ）従業員を必ず含める
+    if (employeesRef && employeesRef.list) {
+        employeesRef.list.forEach(name => {
+            const meta = employeesRef.map.get(name);
+            if (meta && meta.active) {
+                encounteredEmployees.add(name);
+            }
+        });
+    }
+
     // ソート順を決定
     const sortedEmployees = Array.from(encounteredEmployees).sort((a, b) => {
         // メタデータを取得
@@ -368,13 +378,13 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
         // 3. 最後は名前順
         return a.localeCompare(b, 'ja');
     });
+    // ソート順に基づいてMapを初期化
+    sortedEmployees.forEach(name => {
+        employeeMap.set(name, []);
+    });
 
     // 各カテゴリのデータを従業員ごとに振り分け
     [...missing, ...excess, ...discrepancies, ...matches].forEach(item => {
-        if (!employeeMap.has(item.employee)) {
-            employeeMap.set(item.employee, []);
-        }
-
         let status = 'match';
         let icon = '✅';
         if (missing.includes(item)) {
@@ -505,32 +515,64 @@ function detectMissingDays(month, cboRecords, employeesRef) {
     // 4. 未入力日を検出（休日を除外）
     const missingDays = [];
     const holidays = [];
-    const threshold = 5; // 5人以上記録があれば出勤日
+    const missingThreshold = 5; // 5人以上未入力なら休日
 
     for (const dateStr of allDates) {
         const recordCount = dateRecordCounts.get(dateStr) || 0;
+        const missingCount = activeEmployeeCount - recordCount;
         const date = new Date(dateStr);
         const dayOfWeek = date.getDay(); // 0=日, 6=土
 
-        // 休日判定: 5人未満の記録しかない日は休日とみなす
-        if (recordCount < threshold) {
+        // 休日判定: 5人以上未入力なら休日とみなす
+        if (missingCount >= missingThreshold) {
             holidays.push({
                 date: dateStr,
                 recordCount,
+                missingCount,
                 dayOfWeek,
-                reason: recordCount === 0 ? '全員未記録' : `${recordCount}人のみ記録`
+                reason: `${missingCount}人が未入力のため休日と判定`
             });
         } else {
-            // 出勤日だが、全員記録しているわけではない場合
-            const missingCount = activeEmployeeCount - recordCount;
-            if (missingCount > 0) {
+            // 出勤日: 未入力の従業員を特定
+            const recordedEmployees = dateRecordedEmployees.get(dateStr) || new Set();
+            const missingEmployees = activeEmployees.filter(name => !recordedEmployees.has(name));
+
+            if (missingEmployees.length > 0) {
                 missingDays.push({
                     date: dateStr,
                     recordCount,
-                    missingCount,
-                    dayOfWeek
+                    missingCount: missingEmployees.length,
+                    dayOfWeek,
+                    missingEmployees: missingEmployees // 未入力の従業員リスト
                 });
             }
+        }
+    }
+
+    // 5. 従業員ごとの未入力日をまとめる
+    const byEmployee = new Map();
+    for (const employee of activeEmployees) {
+        byEmployee.set(employee, []);
+    }
+
+    for (const missingDay of missingDays) {
+        for (const employee of missingDay.missingEmployees) {
+            byEmployee.get(employee).push({
+                date: missingDay.date,
+                dayOfWeek: missingDay.dayOfWeek
+            });
+        }
+    }
+
+    // 未入力日がある従業員のみを抽出
+    const employeeMissingDays = [];
+    for (const [employee, days] of byEmployee.entries()) {
+        if (days.length > 0) {
+            employeeMissingDays.push({
+                employee,
+                missingDays: days.sort((a, b) => a.date.localeCompare(b.date)),
+                count: days.length
+            });
         }
     }
 
@@ -541,7 +583,9 @@ function detectMissingDays(month, cboRecords, employeesRef) {
         missingDays: missingDays.sort((a, b) => a.date.localeCompare(b.date)),
         holidayDetails: holidays.sort((a, b) => a.date.localeCompare(b.date)),
         activeEmployeeCount,
-        threshold
+        threshold: missingThreshold,
+        byEmployee: employeeMissingDays // 従業員ごとの未入力日リスト
     };
 }
+
 
