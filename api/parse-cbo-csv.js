@@ -160,13 +160,18 @@ function parseLine(line, lineNumber) {
     const startTime = columns[3] ? columns[3].trim() : '';
     const endTime = columns[4] ? columns[4].trim() : '';
 
+    // 有給・代休などの理由（N列:13, O列:14）をチェック
+    const reasonN = columns[13] ? columns[13].trim() : '';
+    const reasonO = columns[14] ? columns[14].trim() : '';
+    const hasReason = (reasonN !== '' && reasonN !== '-') || (reasonO !== '' && reasonO !== '-');
+
     // D, E列が空でなく、またはF列（所定）が0でない場合は「打刻あり」
     const hasPunch = (startTime !== '' && startTime !== '-') ||
         (endTime !== '' && endTime !== '-') ||
         regularWork > 0;
 
-    // もし残業も0で、かつ打刻（D～F列）も全くない場合は、その従業員のその日の行は無視（休日または休暇）
-    if (total === 0 && !hasPunch) {
+    // もし残業も0で、かつ打刻（D～F列）も理由（N, O列）も全くない場合は無視（休日または未入力）
+    if (total === 0 && !hasPunch && !hasReason) {
         return null;
     }
 
@@ -178,7 +183,9 @@ function parseLine(line, lineNumber) {
         holiday,
         regular_work: regularWork,
         total: parseFloat(total.toFixed(2)),
-        has_punch: hasPunch // 打刻の有無を保持
+        has_punch: hasPunch, // 打刻の有無
+        has_reason: hasReason, // 有給・代休等の理由の有無
+        reason_text: [reasonN, reasonO].filter(r => r && r !== '-').join(' ') // 理由のテキスト
     };
 }
 
