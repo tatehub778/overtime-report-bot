@@ -554,32 +554,45 @@ function detectMissingDays(month, cboRecords, employeesRef) {
     const holidays = [];
     const missingThreshold = 5; // 5人以上未入力なら休日
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '/'); // YYYY/MM/DD
 
     for (const dateStr of allDates) {
-        const date = new Date(dateStr);
-        // 未来日は判定対象外にする（今日より後ならスキップ）
-        if (date > today) continue;
+        // 未来日は判定対象外にする（今日より後の日付ならスキップ）
+        if (dateStr > todayStr) continue;
 
-        // 正規化された日付でSetを取得
-        const recordedSet = dateRecordedEmployees.get(dateStr) || new Set();
-        const recordCount = recordedSet.size; // ユニークな打刻人数
+        // 実際に打刻（has_punch）がある人のみを取得
+        const recordedPunchSet = new Set();
+        for (const record of cboRecords) {
+            const normalizedDate = formatDateFromReport(record.date);
+            if (normalizedDate === dateStr && record.has_punch) {
+                recordedPunchSet.add(normalizeEmployeeName(record.employee));
+            }
+        }
+
+        const recordCount = recordedPunchSet.size; // 実際に打刻した人数
         const missingCount = activeEmployeeCount - recordCount;
+        const date = new Date(dateStr);
         const dayOfWeek = date.getDay(); // 0=日, 6=土
 
-        // 休日判定: 打刻者が5人未満なら休日とみなす
+        // 休日判定: 実際に打刻した人が5人未満なら休日とみなす
         if (recordCount < missingThreshold) {
             holidays.push({
                 date: dateStr,
                 recordCount,
                 missingCount,
                 dayOfWeek,
-                reason: `${recordCount}人のみ打刻のため休日判定`
+                reason: `${recordCount}人のみ実打刻のため休日判定`
             });
         } else {
-            // 出勤日: 打刻していない人を特定
-            const missingEmployees = activeEmployees.filter(name => !recordedSet.has(name));
+            // 出勤日: CBOにレコード自体がない、またはあっても打刻（D-F列）がない人を特定
+            const recordedEmployees = new Set();
+            for (const record of cboRecords) {
+                if (formatDateFromReport(record.date) === dateStr && (record.has_punch || record.has_reason)) {
+                    recordedEmployees.add(normalizeEmployeeName(record.employee));
+                }
+            }
+
+            const missingEmployees = activeEmployees.filter(name => !recordedEmployees.has(name));
 
             if (missingEmployees.length > 0) {
                 missingDays.push({
