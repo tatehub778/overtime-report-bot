@@ -487,6 +487,32 @@ function displayByEmployee(byEmployee) {
                         <span style="font-size: 20px;">${record.icon}</span>
                         <span style="min-width: 50px; font-weight: 500; color: #6B7280;">${date}</span>
                         <span style="color: ${statusColor}; flex: 1;">${statusText}</span>
+                        
+                        <!-- 本人確認チェック -->
+                        <label class="check-label" title="本人確認">
+                            <input type="checkbox" 
+                                class="check-box" 
+                                data-month="${verificationData.month}"
+                                data-employee="${emp.employee}"
+                                data-date="${record.date}"
+                                data-type="self"
+                                ${record.self_checked ? 'checked' : ''}
+                                onchange="handleCheckChange(this)">
+                            <span>本人✓</span>
+                        </label>
+                        
+                        <!-- 事務確認チェック -->
+                        <label class="check-label" title="事務確認">
+                            <input type="checkbox" 
+                                class="check-box"
+                                data-month="${verificationData.month}"
+                                data-employee="${emp.employee}"
+                                data-date="${record.date}"
+                                data-type="admin"
+                                ${record.admin_checked ? 'checked' : ''}
+                                onchange="handleCheckChange(this)">
+                            <span>事務✓</span>
+                        </label>
                     </div>
                     ${renderSystemDetails(record, emp.employee)}
                 </div>
@@ -736,9 +762,64 @@ async function handleEditSubmit(e) {
     }
 }
 
+// ---------------------------------------------------------
+// Check Change Handler
+// ---------------------------------------------------------
+
+/**
+ * チェックボックスの状態変更ハンドラー
+ */
+async function handleCheckChange(checkbox) {
+    const month = checkbox.dataset.month;
+    const employee = checkbox.dataset.employee;
+    const date = checkbox.dataset.date;
+    const checkType = checkbox.dataset.type;
+    const checked = checkbox.checked;
+
+    try {
+        // チェックボックスを一時的に無効化
+        checkbox.disabled = true;
+
+        const response = await fetch(`${API_BASE}/update-verification-check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                month,
+                employee,
+                date,
+                checkType,
+                checked
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.details || error.error || 'チェック状態の更新に失敗しました');
+        }
+
+        const result = await response.json();
+        console.log('Check updated:', result);
+
+        // 成功時の視覚的フィードバック
+        checkbox.parentElement.classList.add('check-updated');
+        setTimeout(() => {
+            checkbox.parentElement.classList.remove('check-updated');
+        }, 500);
+
+    } catch (error) {
+        console.error('Error updating check:', error);
+        alert(`エラー: ${error.message}`);
+        // エラー時は元に戻す
+        checkbox.checked = !checked;
+    } finally {
+        checkbox.disabled = false;
+    }
+}
+
 // グローバル公開
 window.deleteReport = deleteReport;
 window.openEditReport = openEditReport;
+window.handleCheckChange = handleCheckChange;
 
 // 初期化実行
 init();

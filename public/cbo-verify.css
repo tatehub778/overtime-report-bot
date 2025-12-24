@@ -575,3 +575,56 @@ header h1 {
     align-items: center;
     padding: 4px 0;
 }
+
+/* チェックボックスのスタイル */
+.check-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: #F3F4F6;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.check-label:hover {
+    background: #E5E7EB;
+}
+
+.check-label input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.check-label input[type="checkbox"]:checked+span {
+    color: #10B981;
+    font-weight: 600;
+}
+
+/* チェック更新時のフィードバック */
+.check-updated {
+    animation: checkPulse 0.5s ease;
+}
+
+@keyframes checkPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+        background: #D1FAE5;
+    }
+}
+
+/* レコード行のレイアウト調整 */
+.record-row {
+    padding: 8px 0;
+    border-bottom: 1px dashed #E5E7EB;
+}

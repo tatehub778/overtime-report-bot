@@ -392,7 +392,12 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
             system_hours: item.system_hours !== undefined ? item.system_hours : item.hours,
             difference: item.difference || 0,
             category: item.category || '',
-            system_details: item.system_details || []
+            system_details: item.system_details || [],
+            // チェック状態（既存データがあればそれを使用、なければfalse）
+            self_checked: item.self_checked || false,
+            admin_checked: item.admin_checked || false,
+            self_checked_at: item.self_checked_at || null,
+            admin_checked_at: item.admin_checked_at || null
         });
     });
 
