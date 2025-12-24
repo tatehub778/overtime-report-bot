@@ -757,6 +757,148 @@ header h1 {
 
 /* レコード行のレイアウト調整 */
 .record-row {
-    padding: 8px 0;
+    padding: 12px 0;
     border-bottom: 1px dashed #E5E7EB;
+}
+
+.record-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+}
+
+.record-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    /* 折り返しを許容 */
+}
+
+.record-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.record-date {
+    min-width: 45px;
+    font-weight: 600;
+    color: #718096;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.record-status {
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.record-checks {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* レスポンシブ (スマホ向け) */
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+
+    header h1 {
+        font-size: 1.8rem;
+    }
+
+    .info-board-header {
+        padding: 12px 15px;
+    }
+
+    .info-board-body {
+        padding: 15px;
+        font-size: 0.9rem;
+    }
+
+    .point {
+        min-width: 100%;
+        padding: 10px;
+    }
+
+    .summary-cards {
+        grid-template-columns: 1fr 1fr;
+        /* 2列にする */
+        gap: 10px;
+    }
+
+    .summary-card {
+        padding: 15px 10px;
+        gap: 10px;
+    }
+
+    .card-icon {
+        font-size: 1.8rem;
+    }
+
+    .card-value {
+        font-size: 1.5rem;
+    }
+
+    /* レコード行のモバイル対応 */
+    .record-main {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .record-info {
+        width: 100%;
+    }
+
+    .record-status {
+        white-space: normal;
+        /* 折り返しを許可 */
+        font-size: 0.85rem;
+    }
+
+    .record-checks {
+        width: 100%;
+        justify-content: flex-end;
+        /* 右寄せ */
+    }
+
+    .check-label {
+        font-size: 12px;
+        padding: 6px 10px;
+        flex: 1;
+        /* 幅を広げる */
+        justify-content: center;
+    }
+
+    /* 従業員名カードの調整 */
+    .employee-card {
+        padding: 12px;
+    }
+
+    .employee-card h3 {
+        font-size: 16px;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+    }
+}
+
+/* iPhone SEなどの極小画面向け */
+@media (max-width: 375px) {
+    .summary-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .record-date {
+        font-size: 0.8rem;
+    }
 }

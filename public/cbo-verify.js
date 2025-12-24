@@ -574,41 +574,41 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
             }
 
             html += `
-                <div style="
-                    padding: 8px 0;
-                    border-bottom: 1px dashed #E5E7EB;
-                    display: block; 
-                ">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 20px;">${record.icon}</span>
-                        <span style="min-width: 50px; font-weight: 500; color: #6B7280;">${date}</span>
-                        <span style="color: ${statusColor}; flex: 1;">${statusText}</span>
+                <div class="record-row ${record.status}">
+                    <div class="record-main">
+                        <div class="record-info">
+                            <span class="record-icon">${record.icon}</span>
+                            <span class="record-date">${date}</span>
+                            <span class="record-status" style="color: ${statusColor};">${statusText}</span>
+                        </div>
                         
-                        <!-- 本人確認チェック -->
-                        <label class="check-label" title="本人確認">
-                            <input type="checkbox" 
-                                class="check-box" 
-                                data-month="${verificationData.month}"
-                                data-employee="${emp.employee}"
-                                data-date="${record.date}"
-                                data-type="self"
-                                ${record.self_checked ? 'checked' : ''}
-                                onchange="handleCheckChange(this)">
-                            <span>本人✓</span>
-                        </label>
-                        
-                        <!-- 事務確認チェック -->
-                        <label class="check-label" title="事務確認">
-                            <input type="checkbox" 
-                                class="check-box"
-                                data-month="${verificationData.month}"
-                                data-employee="${emp.employee}"
-                                data-date="${record.date}"
-                                data-type="admin"
-                                ${record.admin_checked ? 'checked' : ''}
-                                onchange="handleCheckChange(this)">
-                            <span>事務✓</span>
-                        </label>
+                        <div class="record-checks">
+                            <!-- 本人確認チェック -->
+                            <label class="check-label self-check" title="本人確認">
+                                <input type="checkbox" 
+                                    class="check-box" 
+                                    data-month="${verificationData.month}"
+                                    data-employee="${emp.employee}"
+                                    data-date="${record.date}"
+                                    data-type="self"
+                                    ${record.self_checked ? 'checked' : ''}
+                                    onchange="handleCheckChange(this)">
+                                <span>本人</span>
+                            </label>
+                            
+                            <!-- 事務確認チェック -->
+                            <label class="check-label admin-check" title="事務確認">
+                                <input type="checkbox" 
+                                    class="check-box"
+                                    data-month="${verificationData.month}"
+                                    data-employee="${emp.employee}"
+                                    data-date="${record.date}"
+                                    data-type="admin"
+                                    ${record.admin_checked ? 'checked' : ''}
+                                    onchange="handleCheckChange(this)">
+                                <span>事務</span>
+                            </label>
+                        </div>
                     </div>
                     ${renderSystemDetails(record, emp.employee)}
                 </div>
