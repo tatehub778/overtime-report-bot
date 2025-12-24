@@ -156,8 +156,17 @@ function parseLine(line, lineNumber) {
         ? regularWork + overtime + early
         : overtime + early + holiday;
 
-    // 時間が全て0の場合はスキップ
-    if (total === 0) {
+    // 打刻有無の判定（D～F列に記載があるか）
+    const startTime = columns[3] ? columns[3].trim() : '';
+    const endTime = columns[4] ? columns[4].trim() : '';
+
+    // D, E列が空でなく、またはF列（所定）が0でない場合は「打刻あり」
+    const hasPunch = (startTime !== '' && startTime !== '-') ||
+        (endTime !== '' && endTime !== '-') ||
+        regularWork > 0;
+
+    // もし残業も0で、かつ打刻（D～F列）も全くない場合は、その従業員のその日の行は無視（休日または休暇）
+    if (total === 0 && !hasPunch) {
         return null;
     }
 
@@ -168,7 +177,8 @@ function parseLine(line, lineNumber) {
         early,
         holiday,
         regular_work: regularWork,
-        total: parseFloat(total.toFixed(2))
+        total: parseFloat(total.toFixed(2)),
+        has_punch: hasPunch // 打刻の有無を保持
     };
 }
 

@@ -238,6 +238,11 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
 
         if (!systemRecord) {
             // システムに報告なし
+            // CBO側の時間が0なら、通常の出勤日（残業なし）なので無視
+            if (cboRecord.total === 0) {
+                continue;
+            }
+
             missing.push({
                 date: cboRecord.date,
                 employee: cboRecord.employee,
