@@ -53,92 +53,109 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function processFile(file) {
+        // First try reading as UTF-8
+        readFile(file, 'UTF-8', (textUTF8) => {
+            // Check for mojibake (Replacement Character \uFFFD)
+            // If many replacement chars are found, it's likely Shift-JIS read as UTF-8
+            if (textUTF8.includes('\uFFFD')) {
+                console.log('UTF-8 decoding failed (mojibake detected), retrying as Shift-JIS...');
+                readFile(file, 'Shift-JIS', (textSJIS) => {
+                    handleParsedText(textSJIS);
+                });
+            } else {
+                handleParsedText(textUTF8);
+            }
+        });
+    }
+
+    function readFile(file, encoding, callback) {
         const reader = new FileReader();
         reader.onload = function (e) {
-            const text = e.target.result;
-            try {
-                // Parse CSV using robust parser
-                const rows = parseCSVText(text);
-
-                // Analyze headers to detect indices
-                if (rows.length < 2) throw new Error('データが空です');
-
-                const headers = rows[0];
-
-                // Based on User Spec + Standard Header:
-                // Col A(0): 日付 (作業日)
-                // Col B(1): 名前 (報告者)
-                // Col C(2): 案件名 (Project)
-                // Col F(5): 事務残業時間 (Overtime)
-                // Col G(6): 内容 (Content)
-
-                const idx = {
-                    date: headers.indexOf('作業日'),
-                    name: headers.indexOf('報告者'),
-                    project: headers.indexOf('案件名'),
-                    overtime: headers.indexOf('残業時間'), // Col F
-                    content: headers.indexOf('作業内容')   // Col G
-                };
-
-                // Fallback fixed indices if headers don't match for some reason (User said A,B,C,F,G)
-                if (idx.date === -1) idx.date = 0;
-                if (idx.name === -1) idx.name = 1;
-                if (idx.project === -1) idx.project = 2;
-                if (idx.overtime === -1) idx.overtime = 5;
-                if (idx.content === -1) idx.content = 6;
-
-                rawData = [];
-                uniqueTaskTypes = new Set();
-
-                // Start from line 1
-                for (let i = 1; i < rows.length; i++) {
-                    const row = rows[i];
-                    if (row.length < 5) continue; // Skip empty/malformed rows
-
-                    const rawName = row[idx.name] || '';
-                    if (!rawName) continue;
-
-                    const cleanName = cleanEmployeeName(rawName);
-                    const dateStr = row[idx.date] || '';
-                    const content = row[idx.content] || 'その他';
-                    const project = row[idx.project] || '-';
-
-                    // Parse Time "HH:MM" -> hours (float)
-                    const timeStr = row[idx.overtime];
-                    const hours = parseTime(timeStr);
-
-                    // User feedback implies we only care about rows in this file.
-                    // If filtering by "0 hours" is needed, we can add it, 
-                    // but sometimes 0h records show "Work done" even if no overtime charged.
-                    // However, for "Overtime Analysis", 0h might be noise. 
-                    // Let's keep them for now in Detail View, but they won't affect sums.
-
-                    rawData.push({
-                        date: dateStr,
-                        rawDate: parseDate(dateStr),
-                        name: cleanName,
-                        project: project,
-                        hours: hours,
-                        content: content
-                    });
-
-                    uniqueTaskTypes.add(content);
-                }
-
-                // Switch view
-                uploadArea.style.display = 'none';
-                dashboardContent.style.display = 'block';
-
-                // Initial render
-                initializeFilters();
-                renderDashboard();
-
-            } catch (err) {
-                console.error(err);
-                alert('CSVの読み込みに失敗しました。詳細: ' + err.message);
-            }
+            callback(e.target.result);
         };
-        reader.readAsText(file);
+        reader.onerror = function (e) {
+            alert('ファイルの読み込みに失敗しました');
+            console.error(e);
+        };
+        reader.readAsText(file, encoding);
+    }
+
+    function handleParsedText(text) {
+        try {
+            // Parse CSV using robust parser
+            const rows = parseCSVText(text);
+
+            // Analyze headers to detect indices
+            if (rows.length < 2) throw new Error('データが空です');
+
+            const headers = rows[0];
+
+            // Based on User Spec + Standard Header:
+            // Col A(0): 日付 (作業日)
+            // Col B(1): 名前 (報告者)
+            // Col C(2): 案件名 (Project)
+            // Col F(5): 事務残業時間 (Overtime)
+            // Col G(6): 内容 (Content)
+
+            const idx = {
+                date: headers.indexOf('作業日'),
+                name: headers.indexOf('報告者'),
+                project: headers.indexOf('案件名'),
+                overtime: headers.indexOf('残業時間'), // Col F
+                content: headers.indexOf('作業内容')   // Col G
+            };
+
+            // Fallback fixed indices if headers don't match for some reason (User said A,B,C,F,G)
+            if (idx.date === -1) idx.date = 0;
+            if (idx.name === -1) idx.name = 1;
+            if (idx.project === -1) idx.project = 2;
+            if (idx.overtime === -1) idx.overtime = 5;
+            if (idx.content === -1) idx.content = 6;
+
+            rawData = [];
+            uniqueTaskTypes = new Set();
+
+            // Start from line 1
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length < 5) continue; // Skip empty/malformed rows
+
+                const rawName = row[idx.name] || '';
+                if (!rawName) continue;
+
+                const cleanName = cleanEmployeeName(rawName);
+                const dateStr = row[idx.date] || '';
+                const content = row[idx.content] || 'その他';
+                const project = row[idx.project] || '-';
+
+                // Parse Time "HH:MM" -> hours (float)
+                const timeStr = row[idx.overtime];
+                const hours = parseTime(timeStr);
+
+                rawData.push({
+                    date: dateStr,
+                    rawDate: parseDate(dateStr),
+                    name: cleanName,
+                    project: project,
+                    hours: hours,
+                    content: content
+                });
+
+                uniqueTaskTypes.add(content);
+            }
+
+            // Switch view
+            uploadArea.style.display = 'none';
+            dashboardContent.style.display = 'block';
+
+            // Initial render
+            initializeFilters();
+            renderDashboard();
+
+        } catch (err) {
+            console.error(err);
+            alert('CSVの読み込みに失敗しました。詳細: ' + err.message);
+        }
     }
 
     /**
