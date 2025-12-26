@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>事務残業分析ダッシュボード</title>
     <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="nav.css">
     <style>
         /* Page specific styles to ensure isolation */
         .analysis-container {
@@ -162,10 +163,20 @@
 
 <body>
     <div class="analysis-container">
-        <header style="margin-bottom: 30px;">
+        <header style="margin-bottom: 20px;">
             <h1>📊 事務残業分析ダッシュボード</h1>
-            <p>CSVをアップロードして、事務残業の内訳（見積もり、作図、事務など）を可視化します。</p>
         </header>
+
+        <nav class="main-nav" style="margin-bottom: 30px;">
+            <a href="/" class="nav-btn">📝 残業報告</a>
+            <a href="/cbo-verify.html" class="nav-btn">📊 CBO検証</a>
+            <a href="/admin.html" class="nav-btn">👥 管理画面</a>
+            <a href="/office-overtime.html" class="nav-btn active">📉 残業分析</a>
+        </nav>
+
+        <div style="margin-bottom: 30px;">
+            <p>CSVをアップロードして、事務残業の内訳（見積もり、作図、事務など）を可視化します。</p>
+        </div>
 
         <div id="uploadArea" class="upload-area">
             <div class="upload-icon">📂</div>
