@@ -39,9 +39,14 @@ async function loadSettings() {
                 debugInfo.style.borderRadius = '6px';
                 debugInfo.style.fontFamily = 'monospace';
 
+                const toggle = document.getElementById('lineNotificationEnabled');
+                if (toggle) {
+                    toggle.checked = data.line_notification_enabled;
+                }
+
                 let debugHtml = `<strong>🔍 システム診断:</strong><br><br>`;
-                debugHtml += `設定値: ${data.raw_value} (型: ${typeof data.raw_value})<br>`;
-                debugHtml += `通知エンジン: ${data.line_notification_enabled ? 'ON (常時有効)' : 'OFF'}<br><br>`;
+                debugHtml += `設定値: ${data.line_notification_enabled ? '有効' : '無効'} (生の値: ${data.raw_value})<br>`;
+                debugHtml += `通知エンジン: ${data.line_notification_enabled ? 'ON' : 'OFF'}<br><br>`;
                 debugHtml += `<strong>環境変数チェック:</strong><br>`;
                 debugHtml += `GROUP_ID: ${data.env_check?.has_group_id ? '✅ 設定済み' : '❌ 未設定'}<br>`;
                 debugHtml += `ACCESS_TOKEN: ${data.env_check?.has_access_token ? '✅ 設定済み' : '❌ 未設定'}<br>`;

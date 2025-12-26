@@ -153,9 +153,15 @@ async function sendLineNotification(date, reports, createdAt) {
     }
     console.log('✓ GROUP_ID configured');
 
-    // NOTE: トグル設定を無効化 - 常に通知を送信
-    // 以前のトグル実装で通知が届かなくなったため、この機能は無効化されています
-    console.log('[SubmitReport] LINE notification enabled (toggle feature disabled)');
+    // トグル設定を確認
+    const lineEnabled = await kv.get('config:line_notification');
+    console.log('[SubmitReport] LINE notification setting (KV):', lineEnabled);
+
+    if (lineEnabled === false) {
+        console.log('ℹ️ LINE notification is disabled by setting, skipping');
+        return 'skipped: disabled by setting';
+    }
+    console.log('✓ LINE notification is enabled');
 
     // 各従業員の情報をフォーマット
     const employeeList = reports.map(r => {

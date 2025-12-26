@@ -773,7 +773,7 @@ function renderSystemDetails(record, employeeName) {
                 📝 システム報告: <strong>${detail.category}</strong> ${detail.hours}h
             </span>
             <div class="report-actions">
-                <button class="btn-sm btn-edit" onclick="openEditReport('${detail.id}', '${record.date}', '${employeeName}', '${detail.category}', ${detail.hours})">編集</button>
+                <button class="btn-sm btn-edit" onclick="openEditReport('${detail.id}', '${record.date}', '${employeeName.replace(/'/g, "\\'")}', '${detail.category}', ${detail.hours})">編集</button>
                 <button class="btn-sm btn-delete" onclick="deleteReport('${detail.id}')">削除</button>
             </div>
         </div>
