@@ -178,11 +178,29 @@
             <p>CSVをアップロードして、事務残業の内訳（見積もり、作図、事務など）を可視化します。</p>
         </div>
 
-        <div id="uploadArea" class="upload-area">
-            <div class="upload-icon">📂</div>
-            <h2>事務残業用CSVをここにドロップ</h2>
-            <p>またはクリックしてファイルを選択</p>
-            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+        <div class="upload-container"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+            <!-- CBO Upload -->
+            <div id="cboUploadArea" class="upload-area">
+                <div class="upload-icon">📂</div>
+                <h3>1. CBO日報CSV</h3>
+                <p class="file-name" id="cboFileName">ファイルを選択 (260114...)</p>
+                <input type="file" id="cboInput" accept=".csv" style="display: none;">
+            </div>
+
+            <!-- Attendance Upload -->
+            <div id="attUploadArea" class="upload-area">
+                <div class="upload-icon">📊</div>
+                <h3>2. 出勤簿CSV</h3>
+                <p class="file-name" id="attFileName">ファイルを選択 (タテシン...)</p>
+                <input type="file" id="attInput" accept=".csv" style="display: none;">
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+            <button id="analyzeBtn" class="btn-primary" style="padding: 12px 40px; font-size: 18px; display: none;">
+                🚀 分析実行
+            </button>
         </div>
 
         <div id="dashboardContent" style="display: none;">

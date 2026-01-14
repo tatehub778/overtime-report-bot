@@ -1,383 +1,231 @@
-/**
- * Office Overtime Analysis Logic
- * Handles CSV parsing, data aggregation, and rendering.
- */
+// DOM Elements
+const cboUploadArea = document.getElementById('cboUploadArea');
+const cboInput = document.getElementById('cboInput');
+const cboFileName = document.getElementById('cboFileName');
 
-document.addEventListener('DOMContentLoaded', () => {
-    const uploadArea = document.getElementById('uploadArea');
-    const fileInput = document.getElementById('fileInput');
-    const dashboardContent = document.getElementById('dashboardContent');
-    const monthFilter = document.getElementById('monthFilter');
-    const resetBtn = document.getElementById('resetBtn');
+const attUploadArea = document.getElementById('attUploadArea');
+const attInput = document.getElementById('attInput');
+const attFileName = document.getElementById('attFileName');
 
-    let rawData = [];
-    let uniqueTaskTypes = new Set();
+const analyzeBtn = document.getElementById('analyzeBtn');
+const dashboardContent = document.getElementById('dashboardContent');
 
-    // Event Listeners
-    uploadArea.addEventListener('click', () => fileInput.click());
+// State
+let cboFile = null;
+let attFile = null;
 
-    uploadArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadArea.classList.add('dragover');
+// Initialize
+function init() {
+    setupUploadHandler(cboUploadArea, cboInput, (file) => {
+        cboFile = file;
+        cboFileName.textContent = file.name;
+        cboUploadArea.classList.add('has-file'); // You might need CSS for this or just rely on text
+        checkReady();
     });
 
-    uploadArea.addEventListener('dragleave', () => {
-        uploadArea.classList.remove('dragover');
+    setupUploadHandler(attUploadArea, attInput, (file) => {
+        attFile = file;
+        attFileName.textContent = file.name;
+        attUploadArea.classList.add('has-file');
+        checkReady();
     });
 
-    uploadArea.addEventListener('drop', (e) => {
+    analyzeBtn.addEventListener('click', handleAnalyze);
+}
+
+function setupUploadHandler(area, input, onFileSelect) {
+    if (!area) return;
+
+    area.addEventListener('click', () => input.click());
+    area.addEventListener('dragover', (e) => {
         e.preventDefault();
-        uploadArea.classList.remove('dragover');
-        const file = e.dataTransfer.files[0];
-        if (file && file.name.endsWith('.csv')) {
-            processFile(file);
-        } else {
-            alert('CSVファイルを選択してください。');
+        area.style.backgroundColor = '#f0f9ff';
+        area.style.borderColor = '#0ea5e9';
+    });
+    area.addEventListener('dragleave', () => {
+        area.style.backgroundColor = '';
+        area.style.borderColor = '';
+    });
+    area.addEventListener('drop', (e) => {
+        e.preventDefault();
+        area.style.backgroundColor = '';
+        area.style.borderColor = '';
+        if (e.dataTransfer.files.length) {
+            onFileSelect(e.dataTransfer.files[0]);
         }
     });
-
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            processFile(e.target.files[0]);
+    input.addEventListener('change', (e) => {
+        if (e.target.files.length) {
+            onFileSelect(e.target.files[0]);
         }
     });
+}
 
-    monthFilter.addEventListener('change', renderDashboard);
-
-    resetBtn.addEventListener('click', () => {
-        dashboardContent.style.display = 'none';
-        uploadArea.style.display = 'block';
-        fileInput.value = '';
-        rawData = [];
-        uniqueTaskTypes.clear();
-    });
-
-    function processFile(file) {
-        // First try reading as UTF-8
-        readFile(file, 'UTF-8', (textUTF8) => {
-            // Check for mojibake (Replacement Character \uFFFD)
-            // If many replacement chars are found, it's likely Shift-JIS read as UTF-8
-            if (textUTF8.includes('\uFFFD')) {
-                console.log('UTF-8 decoding failed (mojibake detected), retrying as Shift-JIS...');
-                readFile(file, 'Shift-JIS', (textSJIS) => {
-                    handleParsedText(textSJIS);
-                });
-            } else {
-                handleParsedText(textUTF8);
-            }
-        });
+function checkReady() {
+    if (cboFile && attFile) {
+        analyzeBtn.style.display = 'inline-block';
     }
+}
 
-    function readFile(file, encoding, callback) {
+async function handleAnalyze() {
+    if (!cboFile || !attFile) return;
+
+    analyzeBtn.textContent = '計算中...';
+    analyzeBtn.disabled = true;
+
+    try {
+        // Read files (Shift-JIS to UTF-8)
+        const cboText = await readFile(cboFile);
+        const attText = await readFile(attFile);
+
+        // Call API
+        const response = await fetch('/api/analyze-work-time', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cboCsv: cboText, attendanceCsv: attText })
+        });
+
+        if (!response.ok) throw new Error('API Error');
+        const data = await response.json();
+
+        // Render Dashboard
+        renderDashboard(data.summary);
+
+        dashboardContent.style.display = 'block';
+        analyzeBtn.textContent = '🚀 分析実行';
+        analyzeBtn.disabled = false;
+
+    } catch (error) {
+        console.error(error);
+        alert('エラーが発生しました: ' + error.message);
+        analyzeBtn.textContent = '🚀 分析実行';
+        analyzeBtn.disabled = false;
+    }
+}
+
+function readFile(file) {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = function (e) {
-            callback(e.target.result);
-        };
-        reader.onerror = function (e) {
-            alert('ファイルの読み込みに失敗しました');
-            console.error(e);
-        };
-        reader.readAsText(file, encoding);
-    }
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = reject;
+        // Shift-JISとして読み込む
+        reader.readAsText(file, 'Shift_JIS');
+    });
+}
 
-    function handleParsedText(text) {
-        try {
-            // Parse CSV using robust parser
-            const rows = parseCSVText(text);
+function renderDashboard(summary) {
+    const tableBody = document.querySelector('#analysisTable tbody');
+    const tableHead = document.querySelector('#analysisTable thead');
 
-            // Analyze headers to detect indices
-            if (rows.length < 2) throw new Error('データが空です');
-
-            const headers = rows[0];
-
-            // Based on User Spec + Standard Header:
-            // Col A(0): 日付 (作業日)
-            // Col B(1): 名前 (報告者)
-            // Col C(2): 案件名 (Project)
-            // Col F(5): 事務残業時間 (Overtime)
-            // Col G(6): 内容 (Content)
-
-            const idx = {
-                date: headers.indexOf('作業日'),
-                name: headers.indexOf('報告者'),
-                project: headers.indexOf('案件名'),
-                overtime: headers.indexOf('残業時間'), // Col F
-                content: headers.indexOf('作業内容')   // Col G
-            };
-
-            // Fallback fixed indices if headers don't match for some reason (User said A,B,C,F,G)
-            if (idx.date === -1) idx.date = 0;
-            if (idx.name === -1) idx.name = 1;
-            if (idx.project === -1) idx.project = 2;
-            if (idx.overtime === -1) idx.overtime = 5;
-            if (idx.content === -1) idx.content = 6;
-
-            rawData = [];
-            uniqueTaskTypes = new Set();
-
-            // Start from line 1
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
-                if (row.length < 5) continue; // Skip empty/malformed rows
-
-                const rawName = row[idx.name] || '';
-                if (!rawName) continue;
-
-                const cleanName = cleanEmployeeName(rawName);
-                const dateStr = row[idx.date] || '';
-                const content = row[idx.content] || 'その他';
-                const project = row[idx.project] || '-';
-
-                // Parse Time "HH:MM" -> hours (float)
-                const timeStr = row[idx.overtime];
-                const hours = parseTime(timeStr);
-
-                rawData.push({
-                    date: dateStr,
-                    rawDate: parseDate(dateStr),
-                    name: cleanName,
-                    project: project,
-                    hours: hours,
-                    content: content
-                });
-
-                uniqueTaskTypes.add(content);
-            }
-
-            // Switch view
-            uploadArea.style.display = 'none';
-            dashboardContent.style.display = 'block';
-
-            // Initial render
-            initializeFilters();
-            renderDashboard();
-
-        } catch (err) {
-            console.error(err);
-            alert('CSVの読み込みに失敗しました。詳細: ' + err.message);
-        }
-    }
-
-    /**
-     * Robust CSV Parser that handles newlines inside quotes
-     */
-    function parseCSVText(text) {
-        const rows = [];
-        let currentRow = [];
-        let currentCell = '';
-        let insideQuotes = false;
-
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            const nextChar = text[i + 1];
-
-            if (char === '"') {
-                if (insideQuotes && nextChar === '"') {
-                    // Escaped quote
-                    currentCell += '"';
-                    i++; // Skip next quote
-                } else {
-                    // Toggle quote state
-                    insideQuotes = !insideQuotes;
-                }
-            } else if (char === ',' && !insideQuotes) {
-                // End of cell
-                currentRow.push(currentCell);
-                currentCell = '';
-            } else if ((char === '\r' || char === '\n') && !insideQuotes) {
-                // End of row
-                // Handle CRLF (skip \n if previous was \r)
-                if (char === '\r' && nextChar === '\n') {
-                    i++;
-                }
-
-                currentRow.push(currentCell);
-                rows.push(currentRow);
-                currentRow = [];
-                currentCell = '';
-            } else {
-                currentCell += char;
-            }
-        }
-
-        // Push last row if exists
-        if (currentRow.length > 0 || currentCell.length > 0) {
-            currentRow.push(currentCell);
-            rows.push(currentRow);
-        }
-
-        return rows;
-    }
-
-    function cleanEmployeeName(name) {
-        // Remove numbers at end "田中 祐太 023" -> "田中 祐太"
-        return name.replace(/\s*\d+$/, '').trim();
-    }
-
-    function parseTime(timeStr) {
-        if (!timeStr) return 0;
-        // Check for decimal format first (e.g. "1.5")
-        if (timeStr.includes('.') && !timeStr.includes(':')) {
-            return parseFloat(timeStr);
-        }
-
-        // Standard "HH:MM" format
-        const parts = timeStr.split(':');
-        if (parts.length === 2) {
-            const h = parseInt(parts[0], 10);
-            const m = parseInt(parts[1], 10);
-            return h + (m / 60);
-        }
-        return 0;
-    }
-
-    function parseDate(dateStr) {
-        if (!dateStr) return new Date(0);
-        // "2025年12月25日" -> Date Object
-        const match = dateStr.match(/(\d+)年(\d+)月(\d+)日/);
-        if (match) {
-            return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
-        }
-        // Fallback for "YYYY/MM/DD" or "YYYY-MM-DD"
-        return new Date(dateStr);
-    }
-
-    function initializeFilters() {
-        // Extract unique months
-        const months = new Set();
-        rawData.forEach(d => {
-            if (d.rawDate.getTime() === 0) return;
-            const k = `${d.rawDate.getFullYear()}年${d.rawDate.getMonth() + 1}月`;
-            months.add(k);
-        });
-
-        // clear options except "all"
-        monthFilter.innerHTML = '<option value="all">全期間</option>';
-
-        // Sort months desc
-        const sortedMonths = Array.from(months).sort((a, b) => {
-            const [y1, m1] = a.match(/(\d+)/g).map(Number);
-            const [y2, m2] = b.match(/(\d+)/g).map(Number);
-            return (y2 * 100 + m2) - (y1 * 100 + m1);
-        });
-
-        sortedMonths.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            monthFilter.appendChild(opt);
-        });
-    }
-
-    function renderDashboard() {
-        const selectedMonth = monthFilter.value;
-
-        // Filter Data
-        const filteredData = rawData.filter(d => {
-            if (selectedMonth === 'all') return true;
-            const m = `${d.rawDate.getFullYear()}年${d.rawDate.getMonth() + 1}月`;
-            return m === selectedMonth;
-        });
-
-        // Set unique tasks array for consistent column ordering
-        const taskTypesArray = Array.from(uniqueTaskTypes).sort();
-
-        // Aggregation: Map<Name, { total: number, breakdown: { [task]: number } }>
-        const agg = new Map();
-        let grandTotal = 0;
-
-        filteredData.forEach(d => {
-            if (!agg.has(d.name)) {
-                agg.set(d.name, { total: 0, breakdown: {} });
-                taskTypesArray.forEach(t => agg.get(d.name).breakdown[t] = 0);
-            }
-            const entry = agg.get(d.name);
-            entry.total += d.hours;
-
-            const taskKey = d.content;
-            if (entry.breakdown[taskKey] !== undefined) {
-                entry.breakdown[taskKey] += d.hours;
-            } else {
-                entry.breakdown[taskKey] = d.hours;
-            }
-
-            grandTotal += d.hours;
-        });
-
-        // Calculate Summary
-        document.getElementById('totalEmployees').textContent = `${agg.size}名`;
-        document.getElementById('grandTotalHours').textContent = `${grandTotal.toFixed(1)}h`;
-
-        const typeTotals = {};
-        filteredData.forEach(d => {
-            const t = d.content;
-            typeTotals[t] = (typeTotals[t] || 0) + d.hours;
-        });
-        const topTask = Object.entries(typeTotals).sort((a, b) => b[1] - a[1])[0];
-        document.getElementById('topTaskType').textContent = topTask ? `${topTask[0]} (${topTask[1].toFixed(1)}h)` : '-';
-
-
-        // --- Render Summary Table ---
-        const thead = document.querySelector('#analysisTable thead');
-        const tbody = document.querySelector('#analysisTable tbody');
-
-        thead.innerHTML = '';
-        tbody.innerHTML = '';
-
-        const headerRow = document.createElement('tr');
-        headerRow.innerHTML = `
+    // Headers
+    tableHead.innerHTML = `
+        <tr>
             <th>氏名</th>
-            <th class="numeric total-col">合計時間</th>
-            ${taskTypesArray.map(t => `<th class="numeric">${t}</th>`).join('')}
-        `;
-        thead.appendChild(headerRow);
+            <th class="numeric">① 定時内現場 (h)</th>
+            <th class="numeric">② 事務残業 (h)</th>
+            <th class="numeric">③ その他残業 (h)</th>
+            <th class="numeric">合計残業 (②+③)</th>
+            <th style="width: 30%;">内訳 (割合)</th>
+        </tr>
+    `;
 
-        const sortedEmployees = Array.from(agg.entries()).sort((a, b) => b[1].total - a[1].total);
+    // Body
+    if (summary.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">該当データなし</td></tr>';
+    } else {
+        tableBody.innerHTML = summary.map(row => {
+            // バーの計算 (%)
+            // 分母は (定時内現場 + 合計残業) で「総労働時間のうちの当該部分」とするか
+            // User wants "Visualized what they are spending hours on".
+            const total = row.fieldWorkRegular + row.officeOvertime + row.otherOvertime;
 
-        sortedEmployees.forEach(([name, data]) => {
-            const tr = document.createElement('tr');
-            let cells = `
-                <td>${name}</td>
-                <td class="numeric total-col">${data.total.toFixed(1)}</td>
+            let fieldPct = 0, officeOtPct = 0, otherOtPct = 0;
+            if (total > 0) {
+                fieldPct = (row.fieldWorkRegular / total) * 100;
+                officeOtPct = (row.officeOvertime / total) * 100;
+                otherOtPct = (row.otherOvertime / total) * 100;
+            }
+
+            return `
+                <tr>
+                    <td style="font-weight: bold;">${row.name}</td>
+                    <td class="numeric" style="color: #059669; font-weight:bold;">${row.fieldWorkRegular.toFixed(1)}</td>
+                    <td class="numeric" style="color: #D97706;">${row.officeOvertime.toFixed(1)}</td>
+                    <td class="numeric" style="color: #DC2626;">${row.otherOvertime.toFixed(1)}</td>
+                    <td class="numeric" style="font-weight: bold;">${row.totalOvertime.toFixed(1)}</td>
+                    <td>
+                        <div style="display: flex; height: 24px; background: #f3f4f6; border-radius: 4px; overflow: hidden; width: 100%;">
+                            ${fieldPct > 0 ? `<div style="width: ${fieldPct}%; background: #10B981;" title="定時内現場: ${row.fieldWorkRegular}h"></div>` : ''}
+                            ${officeOtPct > 0 ? `<div style="width: ${officeOtPct}%; background: #F59E0B;" title="事務残業: ${row.officeOvertime}h"></div>` : ''}
+                            ${otherOtPct > 0 ? `<div style="width: ${otherOtPct}%; background: #EF4444;" title="その他残業: ${row.otherOvertime}h"></div>` : ''}
+                        </div>
+                    </td>
+                </tr>
             `;
+        }).join('');
+    }
 
-            taskTypesArray.forEach(t => {
-                const val = data.breakdown[t] || 0;
-                const cellClass = val > 0 ? "numeric" : "numeric text-muted";
-                const display = val > 0 ? val.toFixed(1) : '-';
-                cells += `<td class="${cellClass}">${display}</td>`;
-            });
 
-            tr.innerHTML = cells;
-            tbody.appendChild(tr);
+    // Render Details Table (Office Overtime Details)
+    const detailsBody = document.querySelector('#detailsTable tbody');
+    if (detailsBody) {
+        let allDetails = [];
+        summary.forEach(emp => {
+            if (emp.details && emp.details.length > 0) {
+                emp.details.forEach(d => {
+                    allDetails.push({ ...d, name: emp.name });
+                });
+            }
         });
 
-        if (sortedEmployees.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${2 + taskTypesArray.length}" style="text-align:center; padding: 20px;">データがありません</td></tr>`;
-        }
+        // Sort by Date, then Name
+        allDetails.sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
 
-
-        // --- Render Details Table ---
-        const detailsBody = document.querySelector('#detailsTable tbody');
-        detailsBody.innerHTML = '';
-
-        // Sort filtered data by date desc, then name
-        filteredData.sort((a, b) => b.rawDate - a.rawDate || a.name.localeCompare(b.name));
-
-        filteredData.forEach(d => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${d.date}</td>
-                <td>${d.name}</td>
-                <td class="text-wrap">${d.project}</td>
-                <td>${d.content}</td>
-                <td class="numeric">${d.hours > 0 ? d.hours.toFixed(1) : '0'}</td>
-            `;
-            detailsBody.appendChild(tr);
-        });
-
-        if (filteredData.length === 0) {
-            detailsBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">データがありません</td></tr>`;
+        if (allDetails.length === 0) {
+            detailsBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">事務残業の詳細データなし</td></tr>';
+        } else {
+            detailsBody.innerHTML = allDetails.map(d => `
+                <tr>
+                    <td>${d.date}</td>
+                    <td style="font-weight: bold;">${d.name}</td>
+                    <td>${d.project}</td>
+                    <td>${d.task}</td>
+                    <td class="numeric">${d.hours.toFixed(1)}</td>
+                </tr>
+            `).join('');
         }
     }
-});
+
+    // Show details section
+    const detSec = document.querySelector('.details-section');
+    if (detSec) detSec.style.display = 'block';
+
+    // Update summary cards
+    const totalField = summary.reduce((sum, r) => sum + r.fieldWorkRegular, 0);
+    const totalOfficeOt = summary.reduce((sum, r) => sum + r.officeOvertime, 0);
+    const totalOtherOt = summary.reduce((sum, r) => sum + r.otherOvertime, 0);
+
+    const summaryHtml = `
+        <div class="summary-card">
+            <h3>集計人数</h3>
+            <div class="value">${summary.length}名</div>
+        </div>
+        <div class="summary-card" style="border-top: 4px solid #10B981;">
+            <h3>定時内現場</h3>
+            <div class="value" style="color: #059669;">${totalField.toFixed(1)}h</div>
+        </div>
+        <div class="summary-card" style="border-top: 4px solid #F59E0B;">
+            <h3>事務残業</h3>
+            <div class="value" style="color: #D97706;">${totalOfficeOt.toFixed(1)}h</div>
+        </div>
+        <div class="summary-card" style="border-top: 4px solid #EF4444;">
+            <h3>その他残業</h3>
+            <div class="value" style="color: #DC2626;">${totalOtherOt.toFixed(1)}h</div>
+        </div>
+    `;
+
+    const cardContainer = document.querySelector('.summary-cards');
+    if (cardContainer) cardContainer.innerHTML = summaryHtml;
+}
+
+init();
