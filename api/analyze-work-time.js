@@ -105,7 +105,7 @@ function parseCboCsv(csvContent, members) {
         // csv-parse はセル内の改行を保持して1つの文字列として返してくるので、ここでsplitする
 
         const projectNames = (row['案件名'] || '').split('\n');
-        const totalHoursRaw = (row['作業時間合計'] || '').split('\n'); // これ、合計だから1行の可能性も？いや、案件ごとの可能性もある。要確認。
+        // Unused: const totalHoursRaw = (row['作業時間合計'] || '').split('\n');
         // 確認したファイル(260114...csv)を見る限り:
         // "Total Hours" (Col 6) seem to be a single value for the day? e.g. "12.17"
         // But "Time Range" (Col 5) has multiple lines: "12:00～19:00\n20:30～03:00"
@@ -266,6 +266,7 @@ function combineData(cboData, attendanceData, members) {
 
 // ユーティリティ: 名前正規化
 function normalizeName(name) {
+    if (!name || typeof name !== 'string') return '';
     return name.replace(/\d+/g, '').replace(/[\s　]+/g, '').trim();
 }
 
