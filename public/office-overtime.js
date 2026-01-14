@@ -85,7 +85,10 @@ async function handleAnalyze() {
             body: JSON.stringify({ cboCsv: cboText, attendanceCsv: attText })
         });
 
-        if (!response.ok) throw new Error('API Error');
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.details || errData.error || '不明なエラーが発生しました');
+        }
         const data = await response.json();
 
         // Render Dashboard
@@ -97,7 +100,7 @@ async function handleAnalyze() {
 
     } catch (error) {
         console.error(error);
-        alert('エラーが発生しました: ' + error.message);
+        alert('分析エラー: ' + error.message);
         analyzeBtn.textContent = '🚀 分析実行';
         analyzeBtn.disabled = false;
     }
