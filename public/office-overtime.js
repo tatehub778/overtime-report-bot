@@ -96,6 +96,10 @@ async function runAnalysis() {
         // 初期表示（全期間）
         currentPeriod = 'all';
         renderResults(result);
+        resultsSection.style.display = 'block';
+
+    } catch (error) {
+        console.error(error);
         alert('エラー: ' + error.message);
     } finally {
         btn.disabled = false;
