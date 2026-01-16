@@ -352,10 +352,6 @@ function renderResults(result) {
                 <h4>事務残業時間</h4>
                 <div class="value" style="color:#2563eb;">${(totalsAll.overtimeTotal - totalsAll.overtimeField).toFixed(1)}h</div>
             </div>
-            <div class="summary-card" style="border-top: 4px solid #ef4444;">
-                <h4>休日出勤時間</h4>
-                <div class="value" style="color:#dc2626;">${totalHoliday.toFixed(1)}h</div>
-            </div>
         `;
 
         const tbody = document.querySelector('#mainTable tbody');
