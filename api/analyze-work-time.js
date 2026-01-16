@@ -205,8 +205,8 @@ function parseCboReportCsv(csvContent, members, results) {
 
         // セル内改行を分割
         const workTimes = (row['作業時間'] || '').split('\n').map(s => s.trim()).filter(Boolean);
-        const workContents = (row['作業内容（管理者）'] || row['作業内容(管理者)'] || '').split('\n').map(s => s.trim());
-        const overtimeTypes = (row['残業種別（管理者）'] || row['残業種別(管理者)'] || '').split('\n').map(s => s.trim());
+        const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split('\n').map(s => s.trim());
+        const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').split('\n').map(s => s.trim());
 
         // F列: 作業時間合計（定時+残業）
         const totalHours = parseFloat(row['作業時間合計'] || '0') || 0;
