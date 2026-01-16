@@ -101,6 +101,11 @@ function readFile(file) {
 function renderResults(result) {
     const { summary, officeDetails } = result;
 
+    // アップロードされたファイルの種類を確認
+    const hasOffice = files.office !== null;
+    const hasCbo = files.cbo !== null;
+    const hasAttendance = files.attendance !== null;
+
     // サマリーカード
     const totals = summary.reduce((acc, emp) => {
         acc.regularTotal += emp.regularTotal;
@@ -111,49 +116,100 @@ function renderResults(result) {
         return acc;
     }, { regularTotal: 0, regularField: 0, overtimeTotal: 0, overtimeField: 0, officeOvertimeHours: 0 });
 
-    document.getElementById('summaryCards').innerHTML = `
-        <div class="summary-card">
-            <h4>集計人数</h4>
-            <div class="value">${summary.length}名</div>
-        </div>
-        <div class="summary-card" style="border-top: 4px solid #10b981;">
-            <h4>定時内現場時間</h4>
-            <div class="value" style="color:#059669;">${totals.regularField.toFixed(1)}h</div>
-        </div>
-        <div class="summary-card" style="border-top: 4px solid #f59e0b;">
-            <h4>残業現場時間</h4>
-            <div class="value" style="color:#d97706;">${totals.overtimeField.toFixed(1)}h</div>
-        </div>
-        <div class="summary-card" style="border-top: 4px solid #3b82f6;">
-            <h4>事務残業合計</h4>
-            <div class="value" style="color:#2563eb;">${totals.officeOvertimeHours.toFixed(1)}h</div>
-        </div>
-    `;
+    // 事務残業CSV単独の場合はシンプル表示
+    if (hasOffice && !hasCbo && !hasAttendance) {
+        document.getElementById('summaryCards').innerHTML = `
+            <div class="summary-card">
+                <h4>集計人数</h4>
+                <div class="value">${summary.length}名</div>
+            </div>
+            <div class="summary-card" style="border-top: 4px solid #3b82f6;">
+                <h4>総事務残業時間</h4>
+                <div class="value" style="color:#2563eb;">${totals.officeOvertimeHours.toFixed(1)}h</div>
+            </div>
+        `;
 
-    // メインテーブル
-    const tbody = document.querySelector('#mainTable tbody');
-    tbody.innerHTML = summary.map(emp => {
-        const regularPct = emp.regularTotal > 0 ? (emp.regularField / emp.regularTotal * 100) : 0;
-        const otPct = emp.overtimeTotal > 0 ? (emp.overtimeField / emp.overtimeTotal * 100) : 0;
+        // シンプルなサマリーテーブル
+        const tbody = document.querySelector('#mainTable tbody');
+        const thead = document.querySelector('#mainTable thead');
 
-        return `
+        thead.innerHTML = `
             <tr>
-                <td><strong>${emp.name}</strong></td>
-                <td class="numeric">${emp.regularTotal.toFixed(1)}</td>
-                <td class="numeric" style="color:#059669;">${emp.regularField.toFixed(1)}</td>
-                <td class="numeric">${emp.regularOffice.toFixed(1)}</td>
-                <td class="numeric">${emp.overtimeTotal.toFixed(1)}</td>
-                <td class="numeric" style="color:#d97706;">${emp.overtimeField.toFixed(1)}</td>
-                <td class="numeric">${emp.overtimeOffice.toFixed(1)}</td>
-                <td>
-                    <div class="bar-container" title="定時:現場${regularPct.toFixed(0)}%, 残業:現場${otPct.toFixed(0)}%">
-                        <div class="bar-field" style="width:${regularPct / 2}%;"></div>
-                        <div class="bar-office" style="width:${otPct / 2}%;"></div>
-                    </div>
-                </td>
+                <th>氏名</th>
+                <th class="numeric">事務残業時間(h)</th>
             </tr>
         `;
-    }).join('');
+
+        tbody.innerHTML = summary
+            .filter(emp => emp.officeOvertimeHours > 0)
+            .sort((a, b) => b.officeOvertimeHours - a.officeOvertimeHours)
+            .map(emp => `
+                <tr>
+                    <td><strong>${emp.name}</strong></td>
+                    <td class="numeric" style="color:#2563eb; font-weight:bold;">${emp.officeOvertimeHours.toFixed(1)}</td>
+                </tr>
+            `).join('');
+
+    } else {
+        // 詳細表示（CBO日報などがある場合）
+        document.getElementById('summaryCards').innerHTML = `
+            <div class="summary-card">
+                <h4>集計人数</h4>
+                <div class="value">${summary.length}名</div>
+            </div>
+            <div class="summary-card" style="border-top: 4px solid #10b981;">
+                <h4>定時内現場時間</h4>
+                <div class="value" style="color:#059669;">${totals.regularField.toFixed(1)}h</div>
+            </div>
+            <div class="summary-card" style="border-top: 4px solid #f59e0b;">
+                <h4>残業現場時間</h4>
+                <div class="value" style="color:#d97706;">${totals.overtimeField.toFixed(1)}h</div>
+            </div>
+            <div class="summary-card" style="border-top: 4px solid #3b82f6;">
+                <h4>事務残業時間</h4>
+                <div class="value" style="color:#2563eb;">${totals.officeOvertimeHours.toFixed(1)}h</div>
+            </div>
+        `;
+
+        const tbody = document.querySelector('#mainTable tbody');
+        const thead = document.querySelector('#mainTable thead');
+
+        thead.innerHTML = `
+            <tr>
+                <th>氏名</th>
+                <th class="numeric">定時内合計</th>
+                <th class="numeric">定時内現場</th>
+                <th class="numeric">定時内事務等</th>
+                <th class="numeric">残業合計</th>
+                <th class="numeric">残業現場</th>
+                <th class="numeric">残業事務等</th>
+                <th>内訳</th>
+            </tr>
+        `;
+
+        tbody.innerHTML = summary.map(emp => {
+            const regularPct = emp.regularTotal > 0 ? (emp.regularField / emp.regularTotal * 100) : 0;
+            const otPct = emp.overtimeTotal > 0 ? (emp.overtimeField / emp.overtimeTotal * 100) : 0;
+
+            return `
+                <tr>
+                    <td><strong>${emp.name}</strong></td>
+                    <td class="numeric">${emp.regularTotal.toFixed(1)}</td>
+                    <td class="numeric" style="color:#059669;">${emp.regularField.toFixed(1)}</td>
+                    <td class="numeric">${emp.regularOffice.toFixed(1)}</td>
+                    <td class="numeric">${emp.overtimeTotal.toFixed(1)}</td>
+                    <td class="numeric" style="color:#d97706;">${emp.overtimeField.toFixed(1)}</td>
+                    <td class="numeric">${emp.overtimeOffice.toFixed(1)}</td>
+                    <td>
+                        <div class="bar-container" title="定時:現場${regularPct.toFixed(0)}%, 残業:現場${otPct.toFixed(0)}%">
+                            <div class="bar-field" style="width:${regularPct / 2}%;"></div>
+                            <div class="bar-office" style="width:${otPct / 2}%;"></div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
 
     // 詳細テーブル（事務残業）
     const detailsSection = document.getElementById('detailsSection');
@@ -161,6 +217,10 @@ function renderResults(result) {
 
     if (officeDetails && officeDetails.length > 0) {
         detailsSection.style.display = 'block';
+
+        // 日付でソート（降順）
+        officeDetails.sort((a, b) => b.date.localeCompare(a.date));
+
         detailsTbody.innerHTML = officeDetails.map(d => `
             <tr>
                 <td>${d.date}</td>
