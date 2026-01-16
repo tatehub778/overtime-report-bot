@@ -312,13 +312,13 @@ function parseCboReportCsv(csvContent, members, results) {
                 regularStart = startMin;  // 開始時刻から17:30まで
             }
             // 午前のみの場合は、08:00～12:00程度で定時終了
-            // 特に境界調整は不要（E列の時間帯が正しければ自動的に計算される）
         }
 
         // 各時間帯から定時/残業の現場時間を算出
         let regularFieldHours = 0;
         let regularTotalHours = 0;
         let overtimeFieldHours = 0;
+        let overtimeTotalHours = 0; // すべてE列から計算した残業時間の合計
 
         // K列のインデックス追跡用
         let otTypeIndex = 0;
@@ -353,18 +353,24 @@ function parseCboReportCsv(csvContent, members, results) {
             }
 
             // 早出残業（08:00以前）の集計
-            // K列には記載がないため、作業内容(I列)で判定（現場キーワードが含まれれば現場残業扱いとする）
             if (earlyHoursInRange > 0) {
+                overtimeTotalHours += earlyHoursInRange;
+                // K列は使わず、作業内容(I列)で判定
                 if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
                     overtimeFieldHours += earlyHoursInRange;
+                } else {
+                    // ここで事務残業としてカウントしてもよいが、
+                    // 最終的に (Total - Field) で出すので加算は不要
                 }
             }
 
             // 定時後残業（17:30以降）の集計
-            // ここで初めてK列の要素を消費する
             if (lateHoursInRange > 0) {
-                const otType = overtimeTypes[otTypeIndex] || ''; // K列から順に取得
-                otTypeIndex++; // 次の残業発生ブロックのためにインクリメント
+                overtimeTotalHours += lateHoursInRange;
+
+                // ここで初めてK列の要素を消費する
+                const otType = overtimeTypes[otTypeIndex] || '';
+                otTypeIndex++;
 
                 if (FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw))) {
                     overtimeFieldHours += lateHoursInRange;
@@ -372,26 +378,14 @@ function parseCboReportCsv(csvContent, members, results) {
             }
         }
 
-        // 定時内合計から休憩時間 (1.5h) を差し引く
-        // 条件: 定時内勤務時間が6時間を超える場合は一律1.5h引く（簡易ロジック）
-        // または時間帯から厳密に引くべきだが、CBO日報の仕様上「12:00-21:30」に1.5h休憩含むとのことなので
-        // 定時範囲(08:00-17:30 = 9.5h)内でフルに働いている場合は1.5h休憩とみなす。
-        // ここでは「定時計算上の時間」が8時間を超えることはないようにキャップする処理と、
-        // 休憩控除を行う（例えば半日勤務なら引かないなど）
+        // 定時内合計から休憩時間 (1.5h) を差引く
+        // ユーザーの「192h = 8h x 24日」に合わせるため、1日最大8hになるように調整
 
         let finalRegularTotal = regularTotalHours;
         let finalRegularField = regularFieldHours;
 
-        // 休憩控除ロジック: 
-        // 10:00-10:15(0.25), 12:00-13:00(1.0), 15:00-15:15(0.25) = 合計1.5h
-        // 重なりを厳密に見るのは計算上複雑になるため、
-        // 「定時範囲の拘束時間が6時間を超えるなら1.5h引く、そうでなければ引かない」
-        // という労働基準法に近い簡易ロジックを採用するか、
-        // あるいは単純に「計算された定時から最大1.5h引く（ただし実働がマイナスにならない範囲で）」か。
-
-        // ユーザーの「192h = 8h x 24日」に合わせるため、1日最大8hになるように調整
         if (regularTotalHours > 6.0) {
-            // 休憩分(1.5h)を引く
+            // 休憩分(1.5h)を引く（定時合計のキャップ）
             const breakTime = 1.5;
             // 現場比率
             const fieldRatio = regularTotalHours > 0 ? (regularFieldHours / regularTotalHours) : 0;
@@ -400,35 +394,13 @@ function parseCboReportCsv(csvContent, members, results) {
             finalRegularField = finalRegularTotal * fieldRatio; // 現場時間も比率で減らす
         }
 
-        // 残業の内訳計算（按分方式）
-        // 日報(E列)から計算した「残業合計(仮)」と「現場残業(仮)」の比率を使う
-        const calcOvertimeTotal = regularTotalHours * 0; // ※ここ間違ってる、残業のループ合計が必要
-        // → ループ内で calcOvertimeTotal, calcOvertimeField を別途集計する必要があるため、
-        // 変数を再利用して、overtimeFieldHours（これがE列ベースの現場残業）と
-        // totalOvertime（これはG+L列の正解値）を比較する。
-
-        // E列ベースの「残業合計」もループ内で計算しておく必要がある
-        // ループを書き換えるのがベストだが、ここでは簡易的に修正
-        // overtimeFieldHours は E列ベースの「現場残業」。
-        // しかし E列ベースの「総残業」変数がなかったので、別途計算していない。
-        // 簡易策: 「現場残業(E列)」が「残業合計(G+L)」を超えていたらキャップする（比率は100%現場）
-        // そうでなければそのまま使い、残りを事務にする。
-
-        // ただしユーザー要望の「マイナスはおかしい」に対応するには、
-        // E列の積算がG列を超過した場合、事務は0、現場はG列の値（上限）とするのが自然。
-
-        let finalOvertimeField = overtimeFieldHours;
-
-        // 補正: E列集計値がG列合計を超えていたら、G列合計に丸める
-        if (finalOvertimeField > totalOvertime) {
-            finalOvertimeField = totalOvertime;
-        }
-
         // 集計
+        // 以前はG列(totalOvertime)を使っていたが、E列積算値(overtimeTotalHours)に変更
+        // これにより、事務残業 = Total - Field が必ず0以上になる（マイナス撲滅）
         emp.regularTotal = (emp.regularTotal || 0) + finalRegularTotal;
         emp.regularField = (emp.regularField || 0) + finalRegularField;
-        emp.overtimeTotal = (emp.overtimeTotal || 0) + totalOvertime;
-        emp.overtimeField = (emp.overtimeField || 0) + finalOvertimeField;
+        emp.overtimeTotal = (emp.overtimeTotal || 0) + overtimeTotalHours;
+        emp.overtimeField = (emp.overtimeField || 0) + overtimeFieldHours;
 
         // 詳細データに追加
         results.cboDetails.push({
@@ -436,8 +408,8 @@ function parseCboReportCsv(csvContent, members, results) {
             name: member.name,
             regularTotal: finalRegularTotal,
             regularField: finalRegularField,
-            overtimeTotal: totalOvertime,
-            overtimeField: finalOvertimeField,
+            overtimeTotal: overtimeTotalHours,
+            overtimeField: overtimeFieldHours,
             holidayWorkHours: 0
         });
     }
