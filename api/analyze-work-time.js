@@ -344,23 +344,39 @@ function parseCboReportCsv(csvContent, members, results) {
             const earlyHoursInRange = earlyMinutes / 60;
             const lateHoursInRange = lateMinutes / 60;
 
-            // 定時内分の集計
+            // 定時内分の集計（休憩時間を厳密に除外）
             if (regularHoursInRange > 0) {
-                regularTotalHours += regularHoursInRange;
+                // 休憩時間帯（分単位）
+                const breaks = [
+                    { start: 10 * 60, end: 10 * 60 + 15 },      // 10:00-10:15
+                    { start: 12 * 60, end: 13 * 60 },           // 12:00-13:00
+                    { start: 15 * 60, end: 15 * 60 + 15 }       // 15:00-15:15
+                ];
+
+                let actualRegularMinutes = regularMinutes;
+
+                // 各休憩時間との重複分を引く
+                for (const brk of breaks) {
+                    const overlapStart = Math.max(regularOverlapStart, brk.start);
+                    const overlapEnd = Math.min(regularOverlapEnd, brk.end);
+                    if (overlapEnd > overlapStart) {
+                        actualRegularMinutes -= (overlapEnd - overlapStart);
+                    }
+                }
+
+                const actualRegularHours = Math.max(0, actualRegularMinutes) / 60;
+                regularTotalHours += actualRegularHours;
+
                 if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
-                    regularFieldHours += regularHoursInRange;
+                    regularFieldHours += actualRegularHours;
                 }
             }
 
             // 早出残業（08:00以前）の集計
             if (earlyHoursInRange > 0) {
                 overtimeTotalHours += earlyHoursInRange;
-                // K列は使わず、作業内容(I列)で判定
                 if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
                     overtimeFieldHours += earlyHoursInRange;
-                } else {
-                    // ここで事務残業としてカウントしてもよいが、
-                    // 最終的に (Total - Field) で出すので加算は不要
                 }
             }
 
@@ -368,7 +384,6 @@ function parseCboReportCsv(csvContent, members, results) {
             if (lateHoursInRange > 0) {
                 overtimeTotalHours += lateHoursInRange;
 
-                // ここで初めてK列の要素を消費する
                 const otType = overtimeTypes[otTypeIndex] || '';
                 otTypeIndex++;
 
@@ -378,21 +393,9 @@ function parseCboReportCsv(csvContent, members, results) {
             }
         }
 
-        // 定時内合計から休憩時間 (1.5h) を差引く
-        // ユーザーの「192h = 8h x 24日」に合わせるため、1日最大8hになるように調整
-
-        let finalRegularTotal = regularTotalHours;
-        let finalRegularField = regularFieldHours;
-
-        if (regularTotalHours > 6.0) {
-            // 休憩分(1.5h)を引く（定時合計のキャップ）
-            const breakTime = 1.5;
-            // 現場比率
-            const fieldRatio = regularTotalHours > 0 ? (regularFieldHours / regularTotalHours) : 0;
-
-            finalRegularTotal = Math.max(0, regularTotalHours - breakTime);
-            finalRegularField = finalRegularTotal * fieldRatio; // 現場時間も比率で減らす
-        }
+        // 簡易ロジックによる休憩控除は削除
+        const finalRegularTotal = regularTotalHours;
+        const finalRegularField = regularFieldHours;
 
         // 集計
         // 以前はG列(totalOvertime)を使っていたが、E列積算値(overtimeTotalHours)に変更
