@@ -252,12 +252,14 @@ function parseAttendanceCsv(csvContent, members, results) {
 
         const emp = results.employees.get(member.id);
 
-        // H列: 残業(h)
-        const overtimeHours = parseFloat(row['残業(h)'] || '0') || 0;
+        // H列: 残業(h) - カラム名の揺らぎに対応
+        const overtimeVal = row['残業(h)'] || row['残業'] || row['残業時間'] || '0';
+        const overtimeHours = parseFloat(overtimeVal) || 0;
         emp.overtimeTotal = (emp.overtimeTotal || 0) + overtimeHours;
 
-        // J列: 休出(h)
-        const holidayWorkHours = parseFloat(row['休出(h)'] || '0') || 0;
+        // J列: 休出(h) - カラム名の揺らぎに対応
+        const holidayVal = row['休出(h)'] || row['休出'] || row['休日出勤'] || '0';
+        const holidayWorkHours = parseFloat(holidayVal) || 0;
         if (holidayWorkHours > 0) {
             emp.holidayWorkHours = (emp.holidayWorkHours || 0) + holidayWorkHours;
         }
@@ -578,17 +580,29 @@ function parseTimeRange(rangeStr) {
 // ユーティリティ関数
 // ========================================
 
+// ユーティリティ関数
+// ========================================
+
 function normalizeDate(dateStr) {
     if (!dateStr || typeof dateStr !== 'string') return '';
 
-    // "2025/12/10" → "2025年12月10日"
-    const match = dateStr.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+    // 全角・半角スペースを除去
+    const cleanStr = dateStr.replace(/\s+/g, '').replace(/　/g, '');
+
+    // "2025/12/10" or "2025-12-10" → "2025年12月10日"
+    let match = cleanStr.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
     if (match) {
         return `${match[1]}年${parseInt(match[2])}月${parseInt(match[3])}日`;
     }
 
-    // 既に "2025年12月10日" の場合はそのまま
-    return dateStr;
+    // "2025年12月10日"
+    match = cleanStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+    if (match) {
+        return `${match[1]}年${parseInt(match[2])}月${parseInt(match[3])}日`;
+    }
+
+    // マッチしない場合はそのまま返す（ただしスペース除去済み）
+    return cleanStr;
 }
 
 function ensureEmployee(empMap, member) {
