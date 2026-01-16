@@ -621,8 +621,8 @@ function ensureEmployee(empMap, member) {
 
 function normalizeName(name) {
     if (!name || typeof name !== 'string') return '';
-    // 全角・半角スペースを除去して統一
-    return name.replace(/\s+/g, '').replace(/　/g, '');
+    // 全角・半角スペースと数字を除去して統一 (例: "岩本 和也 027" -> "岩本和也")
+    return name.replace(/\d+/g, '').replace(/[\s　]+/g, '').trim();
 }
 
 // "2:30" -> 2.5
