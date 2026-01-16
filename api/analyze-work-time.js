@@ -10,23 +10,51 @@ module.exports = async (req, res) => {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const { cboCsv, attendanceCsv } = req.body;
+        const { officeCsv, attendanceCsv, cboCsv } = req.body;
 
-        if (!cboCsv || !attendanceCsv) {
-            return res.status(400).json({ error: '両方のCSVファイルが必要です' });
-        }
-
-        // 1. 管理メンバー情報の取得
+        // 管理メンバー情報の取得
         const managementMembers = await getManagementMembers();
 
-        // 2. データのパースと集計
-        const cboData = parseCboCsv(cboCsv, managementMembers);
-        const attendanceData = parseAttendanceCsv(attendanceCsv, managementMembers);
+        // 結果オブジェクト
+        const results = {
+            employees: new Map(),
+            officeDetails: []
+        };
 
-        // 3. データの結合
-        const summary = combineData(cboData, attendanceData, managementMembers);
+        // 1. 事務残業CSV処理（オプション）
+        if (officeCsv) {
+            parseOfficeCsv(officeCsv, managementMembers, results);
+        }
 
-        return res.status(200).json({ summary });
+        // 2. 出勤簿CSV処理（オプション）
+        if (attendanceCsv) {
+            parseAttendanceCsv(attendanceCsv, managementMembers, results);
+        }
+
+        // 3. CBO日報CSV処理（オプション）
+        if (cboCsv) {
+            parseCboReportCsv(cboCsv, managementMembers, results);
+        }
+
+        // 結果を配列に変換
+        const summary = Array.from(results.employees.values()).map(emp => ({
+            name: emp.name,
+            // 定時内
+            regularTotal: round(emp.regularTotal || 0),
+            regularField: round(emp.regularField || 0),
+            regularOffice: round((emp.regularTotal || 0) - (emp.regularField || 0)),
+            // 残業
+            overtimeTotal: round(emp.overtimeTotal || 0),
+            overtimeField: round(emp.overtimeField || 0),
+            overtimeOffice: round((emp.overtimeTotal || 0) - (emp.overtimeField || 0)),
+            // 事務残業（従来機能）
+            officeOvertimeHours: round(emp.officeOvertimeHours || 0)
+        }));
+
+        return res.status(200).json({
+            summary,
+            officeDetails: results.officeDetails
+        });
 
     } catch (error) {
         console.error('Analysis error:', error);
@@ -34,29 +62,24 @@ module.exports = async (req, res) => {
     }
 };
 
+function round(num) {
+    return Math.round(num * 100) / 100;
+}
+
 // 管理メンバーの取得
 async function getManagementMembers() {
-    const members = new Map(); // Normalized Name -> Member Object
-
+    const members = new Map();
     try {
         const ids = await kv.smembers('employees:all');
         if (!ids) return members;
 
         for (const id of ids) {
             const data = await kv.get(`employee:${id}`);
-            if (data && (data.department === 'management')) {
-                // 名前を正規化してキーにする（スペース除去など）
+            if (data && data.department === 'management') {
                 const normName = normalizeName(data.name);
-                members.set(normName, {
-                    ...data,
-                    normName
-                });
-                // CBO名でも引けるようにする
+                members.set(normName, { ...data, normName });
                 if (data.cboName) {
-                    members.set(normalizeName(data.cboName), {
-                        ...data,
-                        normName
-                    });
+                    members.set(normalizeName(data.cboName), { ...data, normName });
                 }
             }
         }
@@ -66,8 +89,92 @@ async function getManagementMembers() {
     return members;
 }
 
-// CBO CSV (現場時間・事務残業) のパース
-function parseCboCsv(csvContent, members) {
+// ========================================
+// 1. 事務残業CSV処理
+// A:作業日 B:報告者 C:案件名 D:作業時間 E:作業時間合計 F:残業時間(時刻) G:作業内容
+// ========================================
+function parseOfficeCsv(csvContent, members, results) {
+    let records;
+    try {
+        records = parse(csvContent.trim(), {
+            columns: true,
+            skip_empty_lines: true,
+            relax_quotes: true,
+            relax_column_count: true,
+            skip_records_with_error: true
+        });
+    } catch (e) {
+        console.error('Office CSV Parse Error:', e);
+        return;
+    }
+
+    for (const row of records) {
+        const rawName = row['報告者'] || '';
+        const normName = normalizeName(rawName);
+        if (!members.has(normName)) continue;
+
+        const member = members.get(normName);
+        ensureEmployee(results.employees, member);
+
+        const emp = results.employees.get(member.id);
+
+        // F列: 残業時間 (時刻形式 "2:30")
+        const overtimeHours = parseTimeToHours(row['残業時間'] || '');
+        emp.officeOvertimeHours = (emp.officeOvertimeHours || 0) + overtimeHours;
+
+        // 詳細リストに追加
+        if (overtimeHours > 0) {
+            results.officeDetails.push({
+                date: row['作業日'] || '',
+                name: member.name,
+                project: row['案件名'] || '',
+                task: row['作業内容'] || '',
+                hours: overtimeHours
+            });
+        }
+    }
+}
+
+// ========================================
+// 2. 出勤簿CSV処理
+// A:日付 B:曜日 C:報告者 H:残業(h)数値
+// ========================================
+function parseAttendanceCsv(csvContent, members, results) {
+    let records;
+    try {
+        records = parse(csvContent.trim(), {
+            columns: true,
+            skip_empty_lines: true,
+            relax_column_count: true,
+            skip_records_with_error: true
+        });
+    } catch (e) {
+        console.error('Attendance CSV Parse Error:', e);
+        return;
+    }
+
+    for (const row of records) {
+        const rawName = row['報告者'] || '';
+        const normName = normalizeName(rawName);
+        if (!members.has(normName)) continue;
+
+        const member = members.get(normName);
+        ensureEmployee(results.employees, member);
+
+        const emp = results.employees.get(member.id);
+
+        // H列: 残業(h) (数値形式 "6.5")
+        const overtimeHours = parseFloat(row['残業(h)'] || '0') || 0;
+        emp.overtimeTotal = (emp.overtimeTotal || 0) + overtimeHours;
+    }
+}
+
+// ========================================
+// 3. CBO日報CSV処理（報告確認用）
+// A:作業日 B:報告者 C:案件名(改行) E:作業時間(改行) F:作業時間合計 G:残業時間
+// I:作業内容（管理者用）(改行) K:残業種別（管理者用）(改行)
+// ========================================
+function parseCboReportCsv(csvContent, members, results) {
     let records;
     try {
         records = parse(csvContent.trim(), {
@@ -79,183 +186,121 @@ function parseCboCsv(csvContent, members) {
         });
     } catch (e) {
         console.error('CBO CSV Parse Error:', e);
-        records = [];
+        return;
     }
 
-    const result = new Map(); // Name -> Stats
-
-    for (const row of records) {
-        const rawName = row['報告者'] || row['ユーザー名'] || '';
-        const normName = normalizeName(rawName);
-
-        // 管理メンバーでなければスキップ
-        if (!members.has(normName)) continue;
-        const member = members.get(normName);
-
-        if (!result.has(member.id)) {
-            result.set(member.id, {
-                id: member.id,
-                name: member.name,
-                fieldWorkRegular: 0, // 定時内現場
-                officeOvertime: 0,   // 事務残業
-                details: []
-            });
-        }
-        const stats = result.get(member.id);
-
-        const projectNames = (row['案件名'] || '').split('\n');
-
-        const timeRanges = (row['作業時間'] || '').split('\n');
-        const contentTypes = (row['作業内容'] || '').split('\n');
-        const overtimeTypes = (row['残業種別'] || '').split('\n');
-        const overtimes = (row['残業時間'] || '').split('\n');
-        const earlies = (row['早出時間'] || '').split('\n');
-
-        // 最大の行数を取得
-        const maxLines = Math.max(timeRanges.length, contentTypes.length, overtimeTypes.length);
-
-        for (let i = 0; i < maxLines; i++) {
-            const range = timeRanges[i] || '';
-            const content = contentTypes[i] || '';
-            const otType = overtimeTypes[i] || '';
-            const otStr = overtimes[i] || '0:00';
-            const earlyStr = earlies[i] || '0:00';
-
-            // 時間計算
-            const totalDuration = calculateDuration(range); // 時間帯から算出
-            const otHours = parseTimeStr(otStr);
-            const earlyHours = parseTimeStr(earlyStr);
-
-            let regularHours = Math.max(0, totalDuration - otHours - earlyHours);
-
-            const isOfficeOvertime = otType.includes('事務残業');
-            const isOfficeContent = /事務|見積|作図|打合せ|会議|移動/.test(content);
-            const isFieldContent = /現場|工事|作業|立会|搬入/.test(content);
-
-            // 分類
-            if (isOfficeOvertime) {
-                stats.officeOvertime += otHours + earlyHours;
-
-                // 詳細リストに追加 (事務残業のみ)
-                stats.details.push({
-                    date: row['作業日'] || '',
-                    project: (projectNames[i] || projectNames[0] || '').trim(), // 行対応がなければ先頭を使う
-                    task: content,
-                    hours: otHours + earlyHours
-                });
-            }
-
-            // 定時内分の判定
-            if (regularHours > 0) {
-                if (isFieldContent || (!isOfficeContent)) {
-                    // 明示的に現場、または事務っぽくないもの
-                    stats.fieldWorkRegular += regularHours;
-                }
-            }
-        }
-    }
-    return result;
-}
-
-// 出勤簿 CSV (残業合計) のパース
-function parseAttendanceCsv(csvContent, members) {
-    let records;
-    try {
-        records = parse(csvContent.trim(), {
-            columns: true,
-            skip_empty_lines: true,
-            relax_column_count: true,
-            skip_records_with_error: true
-        });
-    } catch (e) {
-        console.error('Attendance CSV Parse Error:', e);
-        records = [];
-    }
-
-    const result = new Map(); // Name -> Total Overtime
+    // 現場判定キーワード
+    const FIELD_KEYWORDS_REGULAR = ['夜間作業', '現場', '運搬'];
+    const FIELD_KEYWORDS_OVERTIME = ['現場残業', '夜工事残業', '運搬'];
 
     for (const row of records) {
         const rawName = row['報告者'] || '';
         const normName = normalizeName(rawName);
-
         if (!members.has(normName)) continue;
+
         const member = members.get(normName);
+        ensureEmployee(results.employees, member);
 
-        // 残業(h) カラムを使用
-        const totalOt = parseFloat(row['残業(h)'] || 0);
+        const emp = results.employees.get(member.id);
 
-        if (!isNaN(totalOt)) {
-            const current = result.get(member.id) || 0;
-            result.set(member.id, current + totalOt);
+        // セル内改行を分割
+        const workTimes = (row['作業時間'] || '').split('\n').map(s => s.trim()).filter(Boolean);
+        const workContents = (row['作業内容（管理者）'] || row['作業内容(管理者)'] || '').split('\n').map(s => s.trim());
+        const overtimeTypes = (row['残業種別（管理者）'] || row['残業種別(管理者)'] || '').split('\n').map(s => s.trim());
+
+        // F列: 作業時間合計（定時+残業）
+        const totalHours = parseFloat(row['作業時間合計'] || '0') || 0;
+        // G列: 残業時間 (時刻形式想定)
+        const overtimeHours = parseTimeToHours(row['残業時間'] || '');
+
+        // 定時内時間 = 作業時間合計 - 残業時間
+        const regularHours = Math.max(0, totalHours - overtimeHours);
+
+        // 各作業ブロックの時間を計算
+        let regularFieldHours = 0;
+        let overtimeFieldHours = 0;
+
+        for (let i = 0; i < workTimes.length; i++) {
+            const timeRange = workTimes[i];
+            const content = workContents[i] || '';
+            const otType = overtimeTypes[i] || '';
+
+            // 時間帯から時間数を計算
+            const duration = calculateDuration(timeRange);
+            if (duration <= 0) continue;
+
+            // 定時内か残業かを判定（残業種別があれば残業）
+            const isOvertime = otType && otType.length > 0;
+
+            if (isOvertime) {
+                // 残業中の現場判定
+                if (FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw))) {
+                    overtimeFieldHours += duration;
+                }
+            } else {
+                // 定時内の現場判定
+                if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
+                    regularFieldHours += duration;
+                }
+            }
         }
+
+        // 集計
+        emp.regularTotal = (emp.regularTotal || 0) + regularHours;
+        emp.regularField = (emp.regularField || 0) + regularFieldHours;
+        emp.overtimeField = (emp.overtimeField || 0) + overtimeFieldHours;
     }
-    return result;
 }
 
-// データ結合
-function combineData(cboData, attendanceData, members) {
-    const combined = [];
-    const seenIds = new Set();
+// ========================================
+// ユーティリティ関数
+// ========================================
 
-    // 1. CBOデータから
-    cboData.forEach((stats, id) => {
-        seenIds.add(id);
-        const totalOvertime = attendanceData.get(id) || 0;
-
-        let otherOvertime = Math.max(0, totalOvertime - stats.officeOvertime);
-
-        combined.push({
-            name: stats.name,
-            fieldWorkRegular: parseFloat(stats.fieldWorkRegular.toFixed(2)),
-            officeOvertime: parseFloat(stats.officeOvertime.toFixed(2)),
-            totalOvertime: parseFloat(totalOvertime.toFixed(2)),
-            otherOvertime: parseFloat(otherOvertime.toFixed(2)),
-            details: stats.details || []
+function ensureEmployee(empMap, member) {
+    if (!empMap.has(member.id)) {
+        empMap.set(member.id, {
+            id: member.id,
+            name: member.name,
+            regularTotal: 0,
+            regularField: 0,
+            overtimeTotal: 0,
+            overtimeField: 0,
+            officeOvertimeHours: 0
         });
-    });
-
-    // 2. データがなかったメンバーも追加
-    members.forEach((m) => {
-        if (!seenIds.has(m.id)) {
-            if ([...seenIds].includes(m.id)) return;
-            seenIds.add(m.id);
-
-            combined.push({
-                name: m.name,
-                fieldWorkRegular: 0,
-                officeOvertime: 0,
-                totalOvertime: 0,
-                otherOvertime: 0,
-                details: []
-            });
-        }
-    });
-
-    return combined;
+    }
 }
 
-// ユーティリティ: 名前正規化
 function normalizeName(name) {
     if (!name || typeof name !== 'string') return '';
     return name.replace(/\d+/g, '').replace(/[\s　]+/g, '').trim();
 }
 
-// ユーティリティ: 時間パース (HH:MM -> Hours)
-function parseTimeStr(timeStr) {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    if (isNaN(h)) return 0;
-    return h + (m || 0) / 60;
+// "2:30" -> 2.5
+function parseTimeToHours(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return 0;
+    const cleaned = timeStr.trim();
+    if (!cleaned || cleaned === '-') return 0;
+
+    const parts = cleaned.split(':');
+    if (parts.length !== 2) return 0;
+
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    return h + m / 60;
 }
 
-// ユーティリティ: 期間計算 (HH:MM～HH:MM -> Hours)
+// "08:00～17:30" -> 9.5
 function calculateDuration(rangeStr) {
-    if (!rangeStr || !rangeStr.includes('～')) return 0;
-    const [start, end] = rangeStr.split('～');
+    if (!rangeStr || typeof rangeStr !== 'string') return 0;
+    if (!rangeStr.includes('～') && !rangeStr.includes('~')) return 0;
 
-    let startH = parseTimeStr(start);
-    let endH = parseTimeStr(end);
+    const [start, end] = rangeStr.split(/[～~]/);
+    if (!start || !end) return 0;
 
+    let startH = parseTimeToHours(start);
+    let endH = parseTimeToHours(end);
+
+    // 日またぎ対応
     if (endH < startH) {
         endH += 24;
     }

@@ -4,263 +4,258 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>事務残業分析ダッシュボード</title>
+    <title>残業分析ダッシュボード | 残業報告Bot</title>
     <link rel="stylesheet" href="admin.css">
     <link rel="stylesheet" href="nav.css">
     <style>
-        /* Page specific styles to ensure isolation */
         .analysis-container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
         }
 
-        .upload-area {
-            border: 3px dashed var(--border-color, #ccc);
-            border-radius: 12px;
-            padding: 40px;
-            text-align: center;
-            margin-bottom: 30px;
-            background-color: var(--card-bg, #fff);
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .upload-area:hover,
-        .upload-area.dragover {
-            border-color: var(--primary-color, #00B900);
-            background-color: rgba(0, 185, 0, 0.05);
-        }
-
-        .upload-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
-            color: var(--text-muted, #888);
-        }
-
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            background: var(--card-bg, #fff);
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .month-selector {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .month-selector select {
-            padding: 8px 12px;
-            border: 1px solid var(--border-color, #ddd);
-            border-radius: 6px;
-            font-size: 16px;
-        }
-
-        .summary-cards {
+        .upload-section {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
 
-        .summary-card {
-            background: var(--card-bg, #fff);
+        .upload-box {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8fafc;
+        }
+
+        .upload-box:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .upload-box.has-file {
+            border-color: #10b981;
+            background: #ecfdf5;
+        }
+
+        .upload-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #334155;
+        }
+
+        .upload-box .icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .upload-box .file-name {
+            font-size: 12px;
+            color: #64748b;
+            word-break: break-all;
+        }
+
+        .upload-box.has-file .file-name {
+            color: #059669;
+            font-weight: bold;
+        }
+
+        .btn-analyze {
+            display: block;
+            margin: 0 auto 30px;
+            padding: 15px 50px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-analyze:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-analyze:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
             text-align: center;
         }
 
-        .summary-card h3 {
+        .summary-card h4 {
             margin: 0 0 10px 0;
             font-size: 14px;
-            color: var(--text-muted, #666);
+            color: #64748b;
         }
 
         .summary-card .value {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
-            color: var(--text-color, #333);
-        }
-
-        /* Aggregation Table */
-        .data-table-container {
-            overflow-x: auto;
-            background: var(--card-bg, #fff);
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            margin-bottom: 40px;
-        }
-
-        /* Details Table */
-        .details-section h2 {
-            margin-bottom: 15px;
-            font-size: 18px;
-            color: var(--text-color, #333);
-        }
-
-        .details-table-container {
-            overflow-x: auto;
-            background: var(--card-bg, #fff);
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            max-height: 500px;
-            overflow-y: auto;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            white-space: nowrap;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
         }
 
         th,
         td {
             padding: 12px 15px;
             text-align: left;
-            border-bottom: 1px solid var(--border-color, #eee);
-            vertical-align: top;
+            border-bottom: 1px solid #e2e8f0;
         }
 
         th {
-            background-color: var(--bg-color, #f5f5f5);
+            background: #f1f5f9;
             font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 10;
+            color: #475569;
         }
 
         .numeric {
             text-align: right;
+            font-family: monospace;
         }
 
-        .total-col {
-            font-weight: bold;
-            background-color: rgba(0, 185, 0, 0.05);
+        .bar-container {
+            display: flex;
+            height: 20px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            min-width: 150px;
         }
 
-        .text-wrap {
-            white-space: pre-wrap;
-            min-width: 200px;
-            max-width: 400px;
+        .bar-field {
+            background: #10b981;
         }
 
-        .btn-reset {
-            background: none;
-            border: none;
-            color: var(--text-muted, #888);
-            cursor: pointer;
-            text-decoration: underline;
+        .bar-office {
+            background: #f59e0b;
+        }
+
+        .details-section {
+            margin-top: 40px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #1e293b;
         }
     </style>
 </head>
 
 <body>
     <div class="analysis-container">
-        <header style="margin-bottom: 20px;">
-            <h1>📊 事務残業分析ダッシュボード</h1>
+        <header>
+            <h1>📊 残業分析ダッシュボード</h1>
         </header>
 
-        <nav class="main-nav" style="margin-bottom: 30px;">
+        <nav class="main-nav">
             <a href="/" class="nav-btn">📝 残業報告</a>
             <a href="/cbo-verify.html" class="nav-btn">📊 CBO検証</a>
             <a href="/admin.html" class="nav-btn">👥 管理画面</a>
             <a href="/office-overtime.html" class="nav-btn active">📉 残業分析</a>
         </nav>
 
-        <div style="margin-bottom: 30px;">
-            <p>CSVをアップロードして、事務残業の内訳（見積もり、作図、事務など）を可視化します。</p>
+        <div class="description" style="text-align: center; margin-bottom: 30px; color: #64748b;">
+            <p>CSVをアップロードして、作業時間の内訳を分析します。</p>
         </div>
 
-        <div class="upload-container"
-            style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
-            <!-- CBO Upload -->
-            <div id="cboUploadArea" class="upload-area">
-                <div class="upload-icon">📂</div>
-                <h3>1. CBO日報CSV</h3>
-                <p class="file-name" id="cboFileName">ファイルを選択 (260114...)</p>
-                <input type="file" id="cboInput" accept=".csv" style="display: none;">
+        <!-- アップロードセクション -->
+        <div class="upload-section">
+            <div class="upload-box" id="uploadOffice" data-type="office">
+                <div class="icon">📋</div>
+                <h3>1. 事務残業CSV</h3>
+                <p class="file-name">260113_事務残業確認用...csv</p>
+                <input type="file" accept=".csv" style="display:none;">
             </div>
 
-            <!-- Attendance Upload -->
-            <div id="attUploadArea" class="upload-area">
-                <div class="upload-icon">📊</div>
+            <div class="upload-box" id="uploadAttendance" data-type="attendance">
+                <div class="icon">📅</div>
                 <h3>2. 出勤簿CSV</h3>
-                <p class="file-name" id="attFileName">ファイルを選択 (タテシン...)</p>
-                <input type="file" id="attInput" accept=".csv" style="display: none;">
+                <p class="file-name">タテシン_出勤簿...csv</p>
+                <input type="file" accept=".csv" style="display:none;">
+            </div>
+
+            <div class="upload-box" id="uploadCbo" data-type="cbo">
+                <div class="icon">🏗️</div>
+                <h3>3. CBO日報CSV</h3>
+                <p class="file-name">260114_報告確認用...csv</p>
+                <input type="file" accept=".csv" style="display:none;">
             </div>
         </div>
 
-        <div style="text-align: center; margin-bottom: 30px;">
-            <button id="analyzeBtn" class="btn-primary" style="padding: 12px 40px; font-size: 18px; display: none;">
-                🚀 分析実行
-            </button>
-        </div>
+        <button class="btn-analyze" id="analyzeBtn" disabled>🚀 分析実行</button>
 
-        <div id="dashboardContent" style="display: none;">
-            <div class="controls">
-                <div class="month-selector">
-                    <label for="monthFilter">表示期間:</label>
-                    <select id="monthFilter">
-                        <option value="all">全期間</option>
-                    </select>
-                </div>
-                <button id="resetBtn" class="btn-reset">別のファイルを読み込む</button>
-            </div>
+        <!-- 結果セクション -->
+        <div class="results-section" id="resultsSection">
+            <div class="summary-cards" id="summaryCards"></div>
 
-            <div class="summary-cards">
-                <div class="summary-card">
-                    <h3>対象人数</h3>
-                    <div class="value" id="totalEmployees">0名</div>
-                </div>
-                <div class="summary-card">
-                    <h3>総事務残業時間</h3>
-                    <div class="value" id="grandTotalHours">0.0h</div>
-                </div>
-                <div class="summary-card">
-                    <h3>主な作業</h3>
-                    <div class="value" id="topTaskType">-</div>
-                </div>
-            </div>
+            <h2 class="section-title">👤 社員別 時間内訳</h2>
+            <table id="mainTable">
+                <thead>
+                    <tr>
+                        <th>氏名</th>
+                        <th class="numeric">定時内合計</th>
+                        <th class="numeric">定時内現場</th>
+                        <th class="numeric">定時内事務等</th>
+                        <th class="numeric">残業合計</th>
+                        <th class="numeric">残業現場</th>
+                        <th class="numeric">残業事務等</th>
+                        <th>内訳</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
 
-            <h2>集計テーブル</h2>
-            <div class="data-table-container">
-                <table id="analysisTable">
+            <div class="details-section" id="detailsSection">
+                <h2 class="section-title">📝 事務残業 詳細リスト</h2>
+                <table id="detailsTable">
                     <thead>
-                        <!-- Headers will be generated dynamically -->
+                        <tr>
+                            <th>日付</th>
+                            <th>氏名</th>
+                            <th>案件名</th>
+                            <th>作業内容</th>
+                            <th class="numeric">時間(h)</th>
+                        </tr>
                     </thead>
-                    <tbody>
-                        <!-- Summaries will be generated dynamically -->
-                    </tbody>
+                    <tbody></tbody>
                 </table>
             </div>
-
-            <div class="details-section">
-                <h2>詳細データ</h2>
-                <div class="details-table-container">
-                    <table id="detailsTable">
-                        <thead>
-                            <tr>
-                                <th>日付</th>
-                                <th>氏名</th>
-                                <th>案件名</th>
-                                <th>作業内容</th>
-                                <th class="numeric">残業時間</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Rows will be generated dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
+
+        <footer class="footer" style="margin-top: 40px; text-align: center; color: #94a3b8;">
+            <p>© 2025 tatesin夜勤残業報告</p>
+        </footer>
     </div>
 
     <script src="office-overtime.js"></script>
