@@ -58,6 +58,10 @@
             word-break: break-all;
         }
 
+        .upload-box>* {
+            pointer-events: none;
+        }
+
         .upload-box.has-file .file-name {
             color: #059669;
             font-weight: bold;
@@ -194,28 +198,28 @@
             <div class="upload-box" id="uploadOffice" data-type="office">
                 <div class="icon">📋</div>
                 <h3>1. 事務残業CSV</h3>
-                <p class="file-name">未選択</p>
+                <p class="file-name">260113_事務残業確認用...csv</p>
                 <input type="file" accept=".csv" style="display:none;">
             </div>
 
             <div class="upload-box" id="uploadAttendance" data-type="attendance">
                 <div class="icon">📅</div>
                 <h3>2. 出勤簿CSV</h3>
-                <p class="file-name">未選択</p>
+                <p class="file-name">タテシン_出勤簿 ver2...csv</p>
                 <input type="file" accept=".csv" style="display:none;">
             </div>
 
             <div class="upload-box" id="uploadCbo" data-type="cbo">
                 <div class="icon">🏗️</div>
                 <h3>3. CBO日報CSV</h3>
-                <p class="file-name">未選択</p>
+                <p class="file-name">260116_報告確認用...csv</p>
                 <input type="file" accept=".csv" style="display:none;">
             </div>
 
             <div class="upload-box" id="uploadSales" data-type="sales">
                 <div class="icon">💰</div>
                 <h3>4. 売上データCSV</h3>
-                <p class="file-name">未選択</p>
+                <p class="file-name">2025年度_個人別売上表.csv</p>
                 <input type="file" accept=".csv" style="display:none;">
             </div>
         </div>

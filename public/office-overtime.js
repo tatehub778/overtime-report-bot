@@ -1,4 +1,3 @@
-```javascript
 // ファイル管理
 const files = {
     office: null,
@@ -15,7 +14,7 @@ let analysisData = null; // 元データを保持
 document.addEventListener('DOMContentLoaded', () => {
     // アップロードボックスの設定
     ['office', 'attendance', 'cbo', 'sales'].forEach(type => {
-        const box = document.getElementById(`upload${ type.charAt(0).toUpperCase() + type.slice(1) } `);
+        const box = document.getElementById(`upload${type.charAt(0).toUpperCase() + type.slice(1)}`);
         const input = box.querySelector('input');
 
         box.addEventListener('click', () => input.click());
@@ -84,7 +83,7 @@ async function runAnalysis() {
         }
 
         analysisData = result; // フィルタリング用に保存
-        
+
         // 期間フィルターの作成 (CBO詳細がある場合)
         if (result.cboDetails && result.cboDetails.length > 0) {
             createPeriodFilter(result.cboDetails);
@@ -126,11 +125,11 @@ function createPeriodFilter(details) {
         if (match) {
             const year = parseInt(match[1]);
             const month = parseInt(match[2]);
-            months.add(`${ year } -${ String(month).padStart(2, '0') } `);
+            months.add(`${year} -${String(month).padStart(2, '0')} `);
 
             // 年度計算（4月始まり）
             const fy = month >= 4 ? year : year - 1;
-            fiscalYears.add(`FY - ${ fy } `);
+            fiscalYears.add(`FY - ${fy} `);
         }
     });
 
@@ -178,7 +177,7 @@ function filterByPeriod(details) {
             const itemFy = month >= 4 ? year : year - 1;
             return itemFy === fy;
         } else {
-            const periodYM = `${ year } -${ String(month).padStart(2, '0') } `;
+            const periodYM = `${year} -${String(month).padStart(2, '0')} `;
             return periodYM === currentPeriod;
         }
     });
@@ -247,7 +246,7 @@ function renderResults(result) {
         <h4>総事務残業時間</h4>
         <div class="value" style="color:#2563eb;">${totals.officeOvertimeHours.toFixed(1)}h</div>
     </div>
-            ${ categoryCards }
+            ${categoryCards}
 `;
 
         // シンプルなサマリーテーブル
@@ -265,7 +264,7 @@ function renderResults(result) {
     < tr >
                 <th>氏名</th>
                 <th class="numeric">合計(h)</th>
-                ${ categoryList.map(cat => `<th class="numeric">${cat}(h)</th>`).join('') }
+                ${categoryList.map(cat => `<th class="numeric">${cat}(h)</th>`).join('')}
             </tr >
     `;
 
@@ -275,11 +274,10 @@ function renderResults(result) {
     < tr >
                     <td><strong>${emp.name}</strong></td>
                     <td class="numeric" style="color:#2563eb; font-weight:bold;">${emp.officeOvertimeHours.toFixed(1)}</td>
-                    ${
-    categoryList.map(cat =>
-        `<td class="numeric">${(emp.taskCategories[cat] || 0).toFixed(1)}</td>`
-    ).join('')
-}
+                    ${categoryList.map(cat =>
+                `<td class="numeric">${(emp.taskCategories[cat] || 0).toFixed(1)}</td>`
+            ).join('')
+                }
                 </tr >
     `).join('');
 
