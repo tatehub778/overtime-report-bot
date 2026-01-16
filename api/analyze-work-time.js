@@ -331,26 +331,15 @@ function parseCboReportCsv(csvContent, members, results) {
             const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
             if (durationHours <= 0) continue;
 
-            // 定時の終了時刻を動的に決定
-            // 基本は17:30だが、開始が12:00以降の場合は実働8時間確保のため終了を後ろ倒しにする
-            // 例: 12:00開始 → 休憩1h除いて8h労働 → 21:00まで定時、それ以降残業
-            // 簡易的に「開始+9.5h」を定時終了とする（休憩1.5h込み）
-            let currentRegularEnd = regularEnd;
-            if (startMin >= 12 * 60) {
-                // 午後出勤シフトとみなし、定時終了を「開始+9.5時間」まで拡張
-                // ただし深夜(22:00)を超える場合は考慮が必要だが、いったんシンプルに拡張
-                currentRegularEnd = Math.max(regularEnd, startMin + 9.5 * 60);
-            }
-
-            // 定時範囲との重なりを計算
+            // 定時範囲との重なりを計算（半休考慮済み）
             const regularOverlapStart = Math.max(startMin, regularStart);
-            const regularOverlapEnd = Math.min(endMin, currentRegularEnd);
+            const regularOverlapEnd = Math.min(endMin, regularEnd);
             const regularMinutes = Math.max(0, regularOverlapEnd - regularOverlapStart);
             const regularHoursInRange = regularMinutes / 60;
 
-            // 残業時間 (定時開始前 + 動的定時終了後)
+            // 残業時間 (定時開始前 + 定時終了後)
             const earlyMinutes = Math.max(0, Math.min(endMin, regularStart) - startMin);
-            const lateMinutes = Math.max(0, endMin - Math.max(startMin, currentRegularEnd));
+            const lateMinutes = Math.max(0, endMin - Math.max(startMin, regularEnd));
 
             const earlyHoursInRange = earlyMinutes / 60;
             const lateHoursInRange = lateMinutes / 60;
