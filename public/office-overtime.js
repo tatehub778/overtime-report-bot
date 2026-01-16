@@ -82,8 +82,11 @@ async function runAnalysis() {
         const result = await response.json();
         analysisData = result; // 元データを保存
 
-        // 期間フィルター作成
-        createPeriodFilter(result.officeDetails);
+        // 期間フィルター作成 (事務残業またはCBO日報のデータを使用)
+        createPeriodFilter([
+            ...(result.officeDetails || []),
+            ...(result.cboDetails || [])
+        ]);
 
         // 初期表示（全期間）
         currentPeriod = 'all';
@@ -279,19 +282,57 @@ function renderResults(result) {
 
     } else {
         // 詳細表示（CBO日報・出勤簿がある場合）
-        const totalsAll = summary.reduce((acc, emp) => {
+        // 期間フィルター適用
+        const filteredCboDetails = filterByPeriod(result.cboDetails || []);
+
+        // フィルタ後のデータからサマリーを再計算
+        const employeeMap = new Map();
+
+        filteredCboDetails.forEach(d => {
+            if (!employeeMap.has(d.name)) {
+                employeeMap.set(d.name, {
+                    name: d.name,
+                    regularTotal: 0,
+                    regularField: 0,
+                    overtimeTotal: 0,
+                    overtimeField: 0,
+                    holidayWorkHours: 0
+                });
+            }
+            const emp = employeeMap.get(d.name);
+            emp.regularTotal += d.regularTotal;
+            emp.regularField += d.regularField;
+            emp.overtimeTotal += d.overtimeTotal;
+            emp.overtimeField += d.overtimeField;
+            emp.holidayWorkHours += (d.holidayWorkHours || 0);
+        });
+
+        // 配列に変換（元々のsummaryと同じ形式）
+        const filteredSummaryCbo = Array.from(employeeMap.values()).map(emp => ({
+            ...emp,
+            regularOffice: emp.regularTotal - emp.regularField,
+            overtimeOffice: emp.overtimeTotal - emp.overtimeField
+        }));
+
+        // ソート（残業時間合計の降順など、元のロジックに合わせる推奨）
+        // ここでは名前順あるいは残業時間順などでソート
+        filteredSummaryCbo.sort((a, b) => b.overtimeTotal - a.overtimeTotal);
+
+        const totalsAll = filteredSummaryCbo.reduce((acc, emp) => {
             acc.regularTotal += emp.regularTotal;
             acc.regularField += emp.regularField;
             acc.overtimeTotal += emp.overtimeTotal;
             acc.overtimeField += emp.overtimeField;
-            acc.officeOvertimeHours += emp.officeOvertimeHours;
+            // officeOvertimeHoursは (overtimeTotal - overtimeField) で算出
             return acc;
-        }, { regularTotal: 0, regularField: 0, overtimeTotal: 0, overtimeField: 0, officeOvertimeHours: 0 });
+        }, { regularTotal: 0, regularField: 0, overtimeTotal: 0, overtimeField: 0 });
+
+        const totalHoliday = filteredSummaryCbo.reduce((sum, emp) => sum + emp.holidayWorkHours, 0);
 
         document.getElementById('summaryCards').innerHTML = `
             <div class="summary-card">
                 <h4>集計人数</h4>
-                <div class="value">${summary.length}名</div>
+                <div class="value">${filteredSummaryCbo.length}名</div>
             </div>
             <div class="summary-card" style="border-top: 4px solid #10b981;">
                 <h4>定時内現場時間</h4>
@@ -307,7 +348,7 @@ function renderResults(result) {
             </div>
             <div class="summary-card" style="border-top: 4px solid #ef4444;">
                 <h4>休日出勤時間</h4>
-                <div class="value" style="color:#dc2626;">${(summary.reduce((sum, emp) => sum + (emp.holidayWorkHours || 0), 0)).toFixed(1)}h</div>
+                <div class="value" style="color:#dc2626;">${totalHoliday.toFixed(1)}h</div>
             </div>
         `;
 
@@ -327,7 +368,7 @@ function renderResults(result) {
             </tr>
         `;
 
-        tbody.innerHTML = summary.map(emp => {
+        tbody.innerHTML = filteredSummaryCbo.map(emp => {
             const regularPct = emp.regularTotal > 0 ? (emp.regularField / emp.regularTotal * 100) : 0;
             const otPct = emp.overtimeTotal > 0 ? (emp.overtimeField / emp.overtimeTotal * 100) : 0;
 

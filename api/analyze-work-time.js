@@ -18,7 +18,9 @@ module.exports = async (req, res) => {
         // 結果オブジェクト
         const results = {
             employees: new Map(),
-            officeDetails: []
+            officeDetails: [],
+            cboDetails: [],
+            attendanceMap: new Map()
         };
 
         // 1. 事務残業CSV処理（オプション）
@@ -34,6 +36,25 @@ module.exports = async (req, res) => {
         // 3. CBO日報CSV処理（オプション）
         if (cboCsv) {
             parseCboReportCsv(cboCsv, managementMembers, results);
+        }
+
+        // 4. 休日出勤のみのデータをcboDetailsに追加
+        // (CBO日報処理でスキップされた、またはCBO日報にない休日出勤データ)
+        if (results.attendanceMap) {
+            for (const [key, info] of results.attendanceMap.entries()) {
+                if (info.isHolidayWork && info.holidayWorkHours > 0) {
+                    const [dateStr, name] = key.split('_');
+                    results.cboDetails.push({
+                        date: dateStr,
+                        name: name,
+                        regularTotal: 0,
+                        regularField: 0,
+                        overtimeTotal: 0,
+                        overtimeField: 0,
+                        holidayWorkHours: info.holidayWorkHours
+                    });
+                }
+            }
         }
 
         // 結果を配列に変換
@@ -57,7 +78,8 @@ module.exports = async (req, res) => {
 
         return res.status(200).json({
             summary,
-            officeDetails: results.officeDetails
+            officeDetails: results.officeDetails,
+            cboDetails: results.cboDetails
         });
 
     } catch (error) {
@@ -355,6 +377,17 @@ function parseCboReportCsv(csvContent, members, results) {
         emp.regularField = (emp.regularField || 0) + regularFieldHours;
         emp.overtimeTotal = (emp.overtimeTotal || 0) + totalOvertime;
         emp.overtimeField = (emp.overtimeField || 0) + overtimeFieldHours;
+
+        // 詳細データに追加
+        results.cboDetails.push({
+            date: normalizeDate(workDate),
+            name: member.name,
+            regularTotal: regularTotalHours,
+            regularField: regularFieldHours,
+            overtimeTotal: totalOvertime,
+            overtimeField: overtimeFieldHours,
+            holidayWorkHours: 0 // 休日出勤は別途追加されるためここは0
+        });
     }
 }
 
