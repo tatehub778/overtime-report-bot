@@ -1,8 +1,10 @@
+```javascript
 // ファイル管理
 const files = {
     office: null,
     attendance: null,
-    cbo: null
+    cbo: null,
+    sales: null
 };
 
 // 期間フィルター
@@ -12,9 +14,9 @@ let analysisData = null; // 元データを保持
 // DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
     // アップロードボックスの設定
-    document.querySelectorAll('.upload-box').forEach(box => {
-        const input = box.querySelector('input[type="file"]');
-        const type = box.dataset.type;
+    ['office', 'attendance', 'cbo', 'sales'].forEach(type => {
+        const box = document.getElementById(`upload${ type.charAt(0).toUpperCase() + type.slice(1) } `);
+        const input = box.querySelector('input');
 
         box.addEventListener('click', () => input.click());
 
@@ -57,45 +59,44 @@ function handleFile(type, file, box) {
 
 async function runAnalysis() {
     const btn = document.getElementById('analyzeBtn');
+    const resultsSection = document.getElementById('resultsSection');
     btn.disabled = true;
-    btn.textContent = '分析中...';
+    btn.textContent = '⏳ 分析中...';
 
     try {
-        // ファイル読み込み
-        const data = {};
-        if (files.office) data.officeCsv = await readFile(files.office);
-        if (files.attendance) data.attendanceCsv = await readFile(files.attendance);
-        if (files.cbo) data.cboCsv = await readFile(files.cbo);
+        const payload = {
+            officeCsv: files.office ? await readFile(files.office) : null,
+            attendanceCsv: files.attendance ? await readFile(files.attendance) : null,
+            cboReportCsv: files.cbo ? await readFile(files.cbo) : null,
+            salesCsv: files.sales ? await readFile(files.sales) : null // 販売CSV追加
+        };
 
-        // API呼び出し
         const response = await fetch('/api/analyze-work-time', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify(payload)
         });
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.details || err.error || 'API Error');
+        const result = await response.json();
+        if (result.error) {
+            alert('エラー: ' + result.error);
+            return;
         }
 
-        const result = await response.json();
-        analysisData = result; // 元データを保存
-
-        // 期間フィルター作成 (事務残業またはCBO日報のデータを使用)
-        createPeriodFilter([
-            ...(result.officeDetails || []),
-            ...(result.cboDetails || [])
-        ]);
+        analysisData = result; // フィルタリング用に保存
+        
+        // 期間フィルターの作成 (CBO詳細がある場合)
+        if (result.cboDetails && result.cboDetails.length > 0) {
+            createPeriodFilter(result.cboDetails);
+        } else {
+            // CBO詳細がない場合は期間フィルターを削除または非表示
+            const existingFilter = resultsSection.querySelector('.period-filter');
+            if (existingFilter) existingFilter.remove();
+        }
 
         // 初期表示（全期間）
         currentPeriod = 'all';
         renderResults(result);
-
-        document.getElementById('resultsSection').style.display = 'block';
-
-    } catch (error) {
-        console.error(error);
         alert('エラー: ' + error.message);
     } finally {
         btn.disabled = false;
@@ -125,17 +126,17 @@ function createPeriodFilter(details) {
         if (match) {
             const year = parseInt(match[1]);
             const month = parseInt(match[2]);
-            months.add(`${year}-${String(month).padStart(2, '0')}`);
+            months.add(`${ year } -${ String(month).padStart(2, '0') } `);
 
             // 年度計算（4月始まり）
             const fy = month >= 4 ? year : year - 1;
-            fiscalYears.add(`FY-${fy}`);
+            fiscalYears.add(`FY - ${ fy } `);
         }
     });
 
     // フィルターUI作成
     const filterHtml = `
-        <div class="period-filter" style="margin-bottom: 20px; text-align: center;">
+    < div class="period-filter" style = "margin-bottom: 20px; text-align: center;" >
             <label style="margin-right: 10px; font-weight: bold;">期間:</label>
             <select id="periodSelect" style="padding: 8px 15px; border-radius: 6px; border: 1px solid #cbd5e1;">
                 <option value="all">全期間</option>
@@ -147,7 +148,7 @@ function createPeriodFilter(details) {
         return `<option value="${fy}">${year}年度 (${year}/4～${year + 1}/3)</option>`;
     }).join('')}
             </select>
-        </div>
+        </div >
     `;
 
     const resultsSection = document.getElementById('resultsSection');
@@ -177,7 +178,7 @@ function filterByPeriod(details) {
             const itemFy = month >= 4 ? year : year - 1;
             return itemFy === fy;
         } else {
-            const periodYM = `${year}-${String(month).padStart(2, '0')}`;
+            const periodYM = `${ year } -${ String(month).padStart(2, '0') } `;
             return periodYM === currentPeriod;
         }
     });
@@ -231,23 +232,23 @@ function renderResults(result) {
         const categoryCards = Object.entries(categoryTotals)
             .sort((a, b) => b[1] - a[1])
             .map(([cat, hours]) => `
-                <div class="summary-card" style="border-top: 3px solid #8b5cf6;">
+    < div class="summary-card" style = "border-top: 3px solid #8b5cf6;" >
                     <h4>${cat}</h4>
                     <div class="value" style="color:#7c3aed; font-size:20px;">${hours.toFixed(1)}h</div>
-                </div>
-            `).join('');
+                </div >
+    `).join('');
 
         document.getElementById('summaryCards').innerHTML = `
-            <div class="summary-card">
+    < div class="summary-card" >
                 <h4>集計人数</h4>
                 <div class="value">${filteredSummary.length}名</div>
-            </div>
-            <div class="summary-card" style="border-top: 4px solid #3b82f6;">
-                <h4>総事務残業時間</h4>
-                <div class="value" style="color:#2563eb;">${totals.officeOvertimeHours.toFixed(1)}h</div>
-            </div>
-            ${categoryCards}
-        `;
+            </div >
+    <div class="summary-card" style="border-top: 4px solid #3b82f6;">
+        <h4>総事務残業時間</h4>
+        <div class="value" style="color:#2563eb;">${totals.officeOvertimeHours.toFixed(1)}h</div>
+    </div>
+            ${ categoryCards }
+`;
 
         // シンプルなサマリーテーブル
         const tbody = document.querySelector('#mainTable tbody');
@@ -261,24 +262,26 @@ function renderResults(result) {
         const categoryList = Array.from(allCategories).sort();
 
         thead.innerHTML = `
-            <tr>
+    < tr >
                 <th>氏名</th>
                 <th class="numeric">合計(h)</th>
-                ${categoryList.map(cat => `<th class="numeric">${cat}(h)</th>`).join('')}
-            </tr>
-        `;
+                ${ categoryList.map(cat => `<th class="numeric">${cat}(h)</th>`).join('') }
+            </tr >
+    `;
 
         tbody.innerHTML = filteredSummary
             .sort((a, b) => b.officeOvertimeHours - a.officeOvertimeHours)
             .map(emp => `
-                <tr>
+    < tr >
                     <td><strong>${emp.name}</strong></td>
                     <td class="numeric" style="color:#2563eb; font-weight:bold;">${emp.officeOvertimeHours.toFixed(1)}</td>
-                    ${categoryList.map(cat =>
-                `<td class="numeric">${(emp.taskCategories[cat] || 0).toFixed(1)}</td>`
-            ).join('')}
-                </tr>
-            `).join('');
+                    ${
+    categoryList.map(cat =>
+        `<td class="numeric">${(emp.taskCategories[cat] || 0).toFixed(1)}</td>`
+    ).join('')
+}
+                </tr >
+    `).join('');
 
     } else {
         // 詳細表示（CBO日報・出勤簿がある場合）
@@ -330,10 +333,10 @@ function renderResults(result) {
         const totalHoliday = filteredSummaryCbo.reduce((sum, emp) => sum + emp.holidayWorkHours, 0);
 
         document.getElementById('summaryCards').innerHTML = `
-            <div class="summary-card">
+    < div class="summary-card" >
                 <h4>集計人数</h4>
                 <div class="value">${filteredSummaryCbo.length}名</div>
-            </div>
+            </div >
             <div class="summary-card" style="border-top: 4px solid #10b981;">
                 <h4>定時内現場時間</h4>
                 <div class="value" style="color:#059669;">${totalsAll.regularField.toFixed(1)}h</div>
@@ -350,13 +353,13 @@ function renderResults(result) {
                 <h4>休日出勤時間</h4>
                 <div class="value" style="color:#dc2626;">${totalHoliday.toFixed(1)}h</div>
             </div>
-        `;
+`;
 
         const tbody = document.querySelector('#mainTable tbody');
         const thead = document.querySelector('#mainTable thead');
 
         thead.innerHTML = `
-            <tr>
+    < tr >
                 <th>氏名</th>
                 <th class="numeric">定時内合計</th>
                 <th class="numeric">定時内現場</th>
@@ -364,32 +367,50 @@ function renderResults(result) {
                 <th class="numeric">残業合計</th>
                 <th class="numeric">残業現場</th>
                 <th class="numeric">残業事務等</th>
+                <th class="numeric">売上高</th>
                 <th>内訳</th>
-            </tr>
-        `;
+            </tr >
+    `;
 
-        tbody.innerHTML = filteredSummaryCbo.map(emp => {
-            const regularPct = emp.regularTotal > 0 ? (emp.regularField / emp.regularTotal * 100) : 0;
-            const otPct = emp.overtimeTotal > 0 ? (emp.overtimeField / emp.overtimeTotal * 100) : 0;
+        tbody.innerHTML = ''; // Clear existing rows
+        sortedStats.forEach(stat => {
+            const regularOffice = stat.regularTotal - stat.regularField;
+            const overtimeOffice = stat.overtimeTotal - stat.overtimeField;
 
-            return `
-                <tr>
-                    <td><strong>${emp.name}</strong></td>
-                    <td class="numeric">${emp.regularTotal.toFixed(1)}</td>
-                    <td class="numeric" style="color:#059669;">${emp.regularField.toFixed(1)}</td>
-                    <td class="numeric">${emp.regularOffice.toFixed(1)}</td>
-                    <td class="numeric">${emp.overtimeTotal.toFixed(1)}</td>
-                    <td class="numeric" style="color:#d97706;">${emp.overtimeField.toFixed(1)}</td>
-                    <td class="numeric">${emp.overtimeOffice.toFixed(1)}</td>
-                    <td>
-                        <div class="bar-container" title="定時:現場${regularPct.toFixed(0)}%, 残業:現場${otPct.toFixed(0)}%">
-                            <div class="bar-field" style="width:${regularPct / 2}%;"></div>
-                            <div class="bar-office" style="width:${otPct / 2}%;"></div>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+            // 売上高の算出
+            // salesMap: { "2025/12": 1500000, ... }
+            let salesAmount = 0;
+            const emp = Object.values(result.employees).find(e => e.name === stat.name);
+            if (emp && emp.salesMap) {
+                if (currentPeriod === 'all') {
+                    salesAmount = Object.values(emp.salesMap).reduce((a, b) => a + b, 0);
+                } else {
+                    // "2025/12" の形式で検索
+                    // currentPeriod は "2025-12" の形式
+                    const periodKey = currentPeriod.replace('-', '/');
+                    salesAmount = emp.salesMap[periodKey] || 0;
+                }
+            }
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+    < td > <strong>${stat.name}</strong></td >
+                        <td class="numeric">${stat.regularTotal.toFixed(1)}</td>
+                        <td class="numeric" style="color:#059669;">${stat.regularField.toFixed(1)}</td>
+                        <td class="numeric">${regularOffice.toFixed(1)}</td>
+                        <td class="numeric">${stat.overtimeTotal.toFixed(1)}</td>
+                        <td class="numeric" style="color:#d97706;">${stat.overtimeField.toFixed(1)}</td>
+                        <td class="numeric">${overtimeOffice.toFixed(1)}</td>
+                        <td class="numeric" style="color:#2563eb; font-weight:bold">¥${salesAmount.toLocaleString()}</td>
+                        <td>
+                            <div class="bar-container" title="定時:現場${(stat.regularTotal > 0 ? (stat.regularField / stat.regularTotal * 100) : 0).toFixed(0)}%, 残業:現場${(stat.overtimeTotal > 0 ? (stat.overtimeField / stat.overtimeTotal * 100) : 0).toFixed(0)}%">
+                                <div class="bar-field" style="width:${(stat.overtimeTotal > 0 ? (stat.overtimeField / stat.overtimeTotal * 100) : 0) / 2}%;"></div>
+                                <div class="bar-office" style="width:${(stat.overtimeTotal > 0 ? (overtimeOffice / stat.overtimeTotal * 100) : 0) / 2}%;"></div>
+                            </div>
+                        </td>
+`;
+            tbody.appendChild(row);
+        });
     }
 
     // 詳細テーブル（事務残業）
@@ -403,14 +424,14 @@ function renderResults(result) {
         filteredDetails.sort((a, b) => b.date.localeCompare(a.date));
 
         detailsTbody.innerHTML = filteredDetails.map(d => `
-            <tr>
+    < tr >
                 <td>${d.date}</td>
                 <td><strong>${d.name}</strong></td>
                 <td>${d.project}</td>
                 <td>${d.task}</td>
                 <td class="numeric">${d.hours.toFixed(1)}</td>
-            </tr>
-        `).join('');
+            </tr >
+    `).join('');
     } else {
         detailsSection.style.display = 'none';
     }

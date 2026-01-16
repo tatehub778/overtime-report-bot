@@ -190,25 +190,32 @@
         </div>
 
         <!-- アップロードセクション -->
-        <div class="upload-section">
+        <div class="upload-section" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
             <div class="upload-box" id="uploadOffice" data-type="office">
                 <div class="icon">📋</div>
                 <h3>1. 事務残業CSV</h3>
-                <p class="file-name">260113_事務残業確認用...csv</p>
+                <p class="file-name">未選択</p>
                 <input type="file" accept=".csv" style="display:none;">
             </div>
 
             <div class="upload-box" id="uploadAttendance" data-type="attendance">
                 <div class="icon">📅</div>
                 <h3>2. 出勤簿CSV</h3>
-                <p class="file-name">タテシン_出勤簿...csv</p>
+                <p class="file-name">未選択</p>
                 <input type="file" accept=".csv" style="display:none;">
             </div>
 
             <div class="upload-box" id="uploadCbo" data-type="cbo">
                 <div class="icon">🏗️</div>
                 <h3>3. CBO日報CSV</h3>
-                <p class="file-name">260114_報告確認用...csv</p>
+                <p class="file-name">未選択</p>
+                <input type="file" accept=".csv" style="display:none;">
+            </div>
+
+            <div class="upload-box" id="uploadSales" data-type="sales">
+                <div class="icon">💰</div>
+                <h3>4. 売上データCSV</h3>
+                <p class="file-name">未選択</p>
                 <input type="file" accept=".csv" style="display:none;">
             </div>
         </div>
@@ -216,10 +223,10 @@
         <button class="btn-analyze" id="analyzeBtn" disabled>🚀 分析実行</button>
 
         <!-- 結果セクション -->
-        <div class="results-section" id="resultsSection">
+        <div class="results-section" id="resultsSection" style="margin-top: 50px;">
             <div class="summary-cards" id="summaryCards"></div>
 
-            <h2 class="section-title">👤 社員別 時間内訳</h2>
+            <h2 class="section-title">👤 社員別 時間・売上内訳</h2>
             <table id="mainTable">
                 <thead>
                     <tr>
@@ -230,6 +237,7 @@
                         <th class="numeric">残業合計</th>
                         <th class="numeric">残業現場</th>
                         <th class="numeric">残業事務等</th>
+                        <th class="numeric" style="color: #3b82f6;">売上高</th>
                         <th>内訳</th>
                     </tr>
                 </thead>
