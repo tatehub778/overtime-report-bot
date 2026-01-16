@@ -140,9 +140,18 @@ function parseSalesCsv(csvContent, members, results) {
 
         if (!emp.salesMap) emp.salesMap = {};
 
-        // 年月をキーにする (2025/12)
+        // 年月を正規化 (例: "2025/12", "2025/4/1" -> "2025/04")
         const rawMonth = row['年月'] || '';
-        let monthKey = rawMonth;
+        let monthKey = '';
+
+        // 日付形式の正規化
+        const dateMatch = rawMonth.match(/(\d{4})[/-](\d{1,2})/);
+        if (dateMatch) {
+            // YYYY/MM の形式に統一 (ゼロ埋め)
+            monthKey = `${dateMatch[1]}/${dateMatch[2].padStart(2, '0')}`;
+        } else {
+            monthKey = rawMonth;
+        }
 
         const salesStr = (row['売上金額'] || row['売上'] || '0').replace(/,/g, '').replace('¥', '');
         const salesAmount = parseFloat(salesStr) || 0;

@@ -235,23 +235,23 @@ function renderResults(result) {
         const categoryCards = Object.entries(categoryTotals)
             .sort((a, b) => b[1] - a[1])
             .map(([cat, hours]) => `
-    < div class="summary-card" style = "border-top: 3px solid #8b5cf6;" >
-                    <h4>${cat}</h4>
-                    <div class="value" style="color:#7c3aed; font-size:20px;">${hours.toFixed(1)}h</div>
-                </div >
-    `).join('');
+            <div class="summary-card" style="border-top: 3px solid #8b5cf6;">
+                <h4>${cat}</h4>
+                <div class="value" style="color:#7c3aed; font-size:20px;">${hours.toFixed(1)}h</div>
+            </div>
+            `).join('');
 
         document.getElementById('summaryCards').innerHTML = `
-    < div class="summary-card" >
+            <div class="summary-card">
                 <h4>集計人数</h4>
                 <div class="value">${filteredSummary.length}名</div>
-            </div >
-    <div class="summary-card" style="border-top: 4px solid #3b82f6;">
-        <h4>総事務残業時間</h4>
-        <div class="value" style="color:#2563eb;">${totals.officeOvertimeHours.toFixed(1)}h</div>
-    </div>
+            </div>
+            <div class="summary-card" style="border-top: 4px solid #3b82f6;">
+                <h4>総事務残業時間</h4>
+                <div class="value" style="color:#2563eb;">${totals.officeOvertimeHours.toFixed(1)}h</div>
+            </div>
             ${categoryCards}
-`;
+        `;
 
         // シンプルなサマリーテーブル
         const tbody = document.querySelector('#mainTable tbody');
@@ -265,25 +265,24 @@ function renderResults(result) {
         const categoryList = Array.from(allCategories).sort();
 
         thead.innerHTML = `
-    < tr >
+            <tr>
                 <th>氏名</th>
                 <th class="numeric">合計(h)</th>
                 ${categoryList.map(cat => `<th class="numeric">${cat}(h)</th>`).join('')}
-            </tr >
-    `;
+            </tr>
+        `;
 
         tbody.innerHTML = filteredSummary
             .sort((a, b) => b.officeOvertimeHours - a.officeOvertimeHours)
             .map(emp => `
-    < tr >
-                    <td><strong>${emp.name}</strong></td>
-                    <td class="numeric" style="color:#2563eb; font-weight:bold;">${emp.officeOvertimeHours.toFixed(1)}</td>
-                    ${categoryList.map(cat =>
+            <tr>
+                <td><strong>${emp.name}</strong></td>
+                <td class="numeric" style="color:#2563eb; font-weight:bold;">${emp.officeOvertimeHours.toFixed(1)}</td>
+                ${categoryList.map(cat =>
                 `<td class="numeric">${(emp.taskCategories[cat] || 0).toFixed(1)}</td>`
-            ).join('')
-                }
-                </tr >
-    `).join('');
+            ).join('')}
+            </tr>
+            `).join('');
 
     } else {
         // 詳細表示（CBO日報・出勤簿がある場合）
@@ -335,10 +334,10 @@ function renderResults(result) {
         const totalHoliday = filteredSummaryCbo.reduce((sum, emp) => sum + emp.holidayWorkHours, 0);
 
         document.getElementById('summaryCards').innerHTML = `
-    < div class="summary-card" >
+            <div class="summary-card">
                 <h4>集計人数</h4>
                 <div class="value">${filteredSummaryCbo.length}名</div>
-            </div >
+            </div>
             <div class="summary-card" style="border-top: 4px solid #10b981;">
                 <h4>定時内現場時間</h4>
                 <div class="value" style="color:#059669;">${totalsAll.regularField.toFixed(1)}h</div>
@@ -355,13 +354,13 @@ function renderResults(result) {
                 <h4>休日出勤時間</h4>
                 <div class="value" style="color:#dc2626;">${totalHoliday.toFixed(1)}h</div>
             </div>
-`;
+        `;
 
         const tbody = document.querySelector('#mainTable tbody');
         const thead = document.querySelector('#mainTable thead');
 
         thead.innerHTML = `
-    < tr >
+            <tr>
                 <th>氏名</th>
                 <th class="numeric">定時内合計</th>
                 <th class="numeric">定時内現場</th>
@@ -371,8 +370,8 @@ function renderResults(result) {
                 <th class="numeric">残業事務等</th>
                 <th class="numeric">売上高</th>
                 <th>内訳</th>
-            </tr >
-    `;
+            </tr>
+        `;
 
         tbody.innerHTML = ''; // Clear existing rows
         filteredSummaryCbo.forEach(stat => {
@@ -393,7 +392,7 @@ function renderResults(result) {
 
             const row = document.createElement('tr');
             row.innerHTML = `
-    < td > <strong>${stat.name}</strong></td >
+                <td><strong>${stat.name}</strong></td>
                 <td class="numeric">${stat.regularTotal.toFixed(1)}</td>
                 <td class="numeric" style="color:#059669;">${stat.regularField.toFixed(1)}</td>
                 <td class="numeric">${stat.regularOffice.toFixed(1)}</td>
@@ -407,7 +406,7 @@ function renderResults(result) {
                         <div class="bar-office" style="width:${otPct / 2}%;"></div>
                     </div>
                 </td>
-`;
+            `;
             tbody.appendChild(row);
         });
     }
