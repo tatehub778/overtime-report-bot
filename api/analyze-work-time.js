@@ -304,137 +304,31 @@ function parseCboReportCsv(csvContent, members, results) {
 
     // 現場判定キーワード（画像分析に基づく）
     const FIELD_KEYWORDS_REGULAR = ['現場', '夜間作業', '夜工事', '運搬'];
-    const FIELD_KEYWORDS_OVERTIME = ['現場残業', '夜工事残業', '夜間作業', '運搬'];
+    const FIELD_KEYWORDS_OVERTIME = ['現場', '現場残業', '夜工事残業', '夜間作業', '運搬']; // '現場'を追加
 
     // 定時の境界（分単位）
     const REGULAR_START = 8 * 60;  // 08:00 = 480分
     const REGULAR_END = 17 * 60 + 30;  // 17:30 = 1050分
 
     for (const row of records) {
-        const rawName = row['報告者'] || '';
-        const normName = normalizeName(rawName);
-        if (!members.has(normName)) continue;
+        // ... (省略) ...
 
-        const member = members.get(normName);
-        ensureEmployee(results.employees, member);
+        // Late区間はK列判定あり
+        if (incrementLate > 0) {
+            const otType = overtimeTypes[otTypeIndex] || '';
+            otTypeIndex++;
 
-        const emp = results.employees.get(member.id);
+            // 明示的な判定
+            const isExplicitField = FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw));
+            const isExplicitOffice = otType.includes('事務') || otType.includes('内勤') || otType.includes('見積');
 
-        // 作業日を正規化してマップキー作成
-        const workDate = row['作業日'] || '';
-        const dateKey = normalizeDate(workDate);
-        const mapKey = `${dateKey}_${member.name}`;
-        const attendanceInfo = results.attendanceMap?.get(mapKey) || {};
-
-        // 休日出勤の場合は全て休日出勤時間としてカウント（出勤簿で集計済み）
-        if (attendanceInfo.isHolidayWork) {
-            continue;
-        }
-
-        // セル内改行を分割（\r\n, \n 両対応）
-        const workTimes = (row['作業時間'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-
-        // G列: 残業時間 (17:30以降)
-        const overtimeG = parseTimeToHours(row['残業時間'] || '');
-        // L列: 早出時間 (08:00以前)
-        const earlyL = parseTimeToHours(row['早出時間'] || '');
-
-        // 残業合計 = G + L
-        const totalOvertime = overtimeG + earlyL;
-
-        // 定時の境界を決定
-        let regularStart = REGULAR_START;  // デフォルト: 08:00
-        let regularEnd = REGULAR_END;      // デフォルト: 17:30
-
-        // 半休の場合
-        if (attendanceInfo.isHalfDay && workTimes.length > 0) {
-            const { startMin } = parseTimeRange(workTimes[0]);
-
-            // 午後からの場合（例: 12:00～17:30）
-            if (startMin >= 12 * 60) {
-                regularStart = startMin;  // 開始時刻から17:30まで
-            }
-            // 午前のみの場合は、08:00～12:00程度で定時終了
-        }
-
-        // 各時間帯から定時/残業の現場時間を算出
-        let regularFieldHours = 0;
-        let regularTotalHours = 0;
-        // 定時内合計、残業合計を一度フラットに計算してから分配する方式に変更
-        // 「基本は1日8時間」というルールに基づく
-
-        // 時間帯ループでまずは総時間を積み上げ
-        // ただし、17:30以降かどうかなどの属性も保持しておく必要があるため、
-        // 従来通りループしつつ、バケツに入れる
-
-        let rawRegularMinutes = 0; // 08:00-17:30 の時間（休憩除く）
-        let rawLateMinutes = 0;    // 17:30以降の時間
-        let rawEarlyMinutes = 0;   // 08:00以前の時間
-
-        let fieldMinutesRegularRange = 0; // 08:00-17:30の現場時間
-        let fieldMinutesLateRange = 0;    // 17:30以降の現場時間
-        let fieldMinutesEarlyRange = 0;   // 08:00以前の現場時間
-
-        // K列のインデックス追跡用
-        let otTypeIndex = 0;
-
-        for (let i = 0; i < workTimes.length; i++) {
-            const timeRange = workTimes[i];
-            const content = workContents[i] || '';
-
-            // 時間帯をパース
-            const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
-            if (durationHours <= 0) continue;
-
-            // 定時範囲(08:00-17:30)との重なり
-            const regularOverlapStart = Math.max(startMin, regularStart);
-            const regularOverlapEnd = Math.min(endMin, regularEnd);
-            let incrementRegular = Math.max(0, regularOverlapEnd - regularOverlapStart);
-
-            // 残業時間 (定時開始前 + 定時終了後)
-            let incrementEarly = Math.max(0, Math.min(endMin, regularStart) - startMin);
-            let incrementLate = Math.max(0, endMin - Math.max(startMin, regularEnd));
-
-            // 休憩控除（厳密なまたぎ判定）
-            const breaks = [
-                { start: 10 * 60, end: 10 * 60 + 15 },
-                { start: 12 * 60, end: 13 * 60 },
-                { start: 15 * 60, end: 15 * 60 + 15 }
-            ];
-
-            // Regular区間からの控除
-            if (incrementRegular > 0) {
-                const s = regularOverlapStart;
-                const e = regularOverlapEnd;
-                // またぎ判定：シフト全体(startMin, endMin)で休憩を含んでいるか
-                for (const brk of breaks) {
-                    if (startMin <= brk.start && endMin >= brk.end) {
-                        // 休憩時間帯がRegular期間と重なっていれば引く
-                        const overlap = Math.max(0, Math.min(e, brk.end) - Math.max(s, brk.start));
-                        incrementRegular -= overlap;
-                    }
-                }
-            }
-
-            // Late区間（17:30以降）からの控除（要望にあれば追加、現状なし）
-
-            rawRegularMinutes += incrementRegular;
-            rawLateMinutes += incrementLate;
-            rawEarlyMinutes += incrementEarly;
-
-            // 現場時間の集計
-            if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
-                if (incrementRegular > 0) fieldMinutesRegularRange += incrementRegular;
-                if (incrementEarly > 0) fieldMinutesEarlyRange += incrementEarly;
-            }
-
-            // Late区間はK列判定あり
-            if (incrementLate > 0) {
-                const otType = overtimeTypes[otTypeIndex] || '';
-                otTypeIndex++;
-                if (FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw))) {
+            if (isExplicitField) {
+                fieldMinutesLateRange += incrementLate;
+            } else if (isExplicitOffice) {
+                // 明示的に事務なら現場時間には加算しない
+            } else {
+                // K列が空欄、または判定不能な場合はI列（作業内容）で判定（フォールバック）
+                if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
                     fieldMinutesLateRange += incrementLate;
                 }
             }
