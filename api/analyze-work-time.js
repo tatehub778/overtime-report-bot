@@ -264,10 +264,10 @@ function parseCboReportCsv(csvContent, members, results) {
             continue;
         }
 
-        // セル内改行を分割
-        const workTimes = (row['作業時間'] || '').split('\n').map(s => s.trim()).filter(Boolean);
-        const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split('\n').map(s => s.trim());
-        const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').split('\n').map(s => s.trim());
+        // セル内改行を分割（\r\n, \n 両対応）
+        const workTimes = (row['作業時間'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
 
         // G列: 残業時間 (17:30以降)
         const overtimeG = parseTimeToHours(row['残業時間'] || '');

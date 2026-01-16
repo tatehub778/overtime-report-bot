@@ -303,7 +303,11 @@ function renderResults(result) {
             </div>
             <div class="summary-card" style="border-top: 4px solid #3b82f6;">
                 <h4>事務残業時間</h4>
-                <div class="value" style="color:#2563eb;">${totalsAll.officeOvertimeHours.toFixed(1)}h</div>
+                <div class="value" style="color:#2563eb;">${(totalsAll.overtimeTotal - totalsAll.overtimeField).toFixed(1)}h</div>
+            </div>
+            <div class="summary-card" style="border-top: 4px solid #ef4444;">
+                <h4>休日出勤時間</h4>
+                <div class="value" style="color:#dc2626;">${(summary.reduce((sum, emp) => sum + (emp.holidayWorkHours || 0), 0)).toFixed(1)}h</div>
             </div>
         `;
 
