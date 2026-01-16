@@ -621,7 +621,8 @@ function ensureEmployee(empMap, member) {
 
 function normalizeName(name) {
     if (!name || typeof name !== 'string') return '';
-    return name.replace(/\d+/g, '').replace(/[\s　]+/g, '').trim();
+    // 全角・半角スペースを除去して統一
+    return name.replace(/\s+/g, '').replace(/　/g, '');
 }
 
 // "2:30" -> 2.5
