@@ -331,10 +331,11 @@ function parseCboReportCsv(csvContent, members, results) {
             continue;
         }
 
-        // セル内改行を分割（\r\n, \n 両対応）。インデックスを合わせるため filter(Boolean) はしない
-        const workTimes = (row['作業時間'] || '').split(/\r?\n/);
-        const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split(/\r?\n/);
-        const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').split(/\r?\n/);
+        // セル内改行を分割（\r\n, \n 両対応）。空行も維持してインデックスを合わせる
+        // 末尾の空行だけは trim で消える可能性があるため、慎重に扱う
+        const workTimes = (row['作業時間'] || '').replace(/\r\n/g, '\n').split('\n');
+        const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').replace(/\r\n/g, '\n').split('\n');
+        const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').replace(/\r\n/g, '\n').split('\n');
 
         // G列: 残業時間 (17:30以降)
         const overtimeG = parseTimeToHours(row['残業時間'] || '');
