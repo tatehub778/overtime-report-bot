@@ -188,8 +188,8 @@ function parseAttendanceCsv(csvContent, members, results) {
 
 // ========================================
 // 3. CBO日報CSV処理（報告確認用）
-// A:作業日 B:報告者 C:案件名(改行) E:作業時間(改行) F:作業時間合計 G:残業時間
-// I:作業内容（管理者用）(改行) K:残業種別（管理者用）(改行)
+// 定時: 08:00～17:30
+// 残業: G列（17:30以降）+ L列（08:00以前の早出）
 // ========================================
 function parseCboReportCsv(csvContent, members, results) {
     let records;
@@ -210,6 +210,10 @@ function parseCboReportCsv(csvContent, members, results) {
     const FIELD_KEYWORDS_REGULAR = ['夜間作業', '現場', '運搬'];
     const FIELD_KEYWORDS_OVERTIME = ['現場残業', '夜工事残業', '運搬'];
 
+    // 定時の境界（分単位）
+    const REGULAR_START = 8 * 60;  // 08:00 = 480分
+    const REGULAR_END = 17 * 60 + 30;  // 17:30 = 1050分
+
     for (const row of records) {
         const rawName = row['報告者'] || '';
         const normName = normalizeName(rawName);
@@ -225,16 +229,17 @@ function parseCboReportCsv(csvContent, members, results) {
         const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split('\n').map(s => s.trim());
         const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').split('\n').map(s => s.trim());
 
-        // F列: 作業時間合計（定時+残業）
-        const totalHours = parseFloat(row['作業時間合計'] || '0') || 0;
-        // G列: 残業時間 (時刻形式想定)
-        const overtimeHours = parseTimeToHours(row['残業時間'] || '');
+        // G列: 残業時間 (17:30以降)
+        const overtimeG = parseTimeToHours(row['残業時間'] || '');
+        // L列: 早出時間 (08:00以前)
+        const earlyL = parseTimeToHours(row['早出時間'] || '');
 
-        // 定時内時間 = 作業時間合計 - 残業時間
-        const regularHours = Math.max(0, totalHours - overtimeHours);
+        // 残業合計 = G + L
+        const totalOvertime = overtimeG + earlyL;
 
-        // 各作業ブロックの時間を計算
+        // 各時間帯から定時/残業の現場時間を算出
         let regularFieldHours = 0;
+        let regularTotalHours = 0;
         let overtimeFieldHours = 0;
 
         for (let i = 0; i < workTimes.length; i++) {
@@ -242,31 +247,71 @@ function parseCboReportCsv(csvContent, members, results) {
             const content = workContents[i] || '';
             const otType = overtimeTypes[i] || '';
 
-            // 時間帯から時間数を計算
-            const duration = calculateDuration(timeRange);
-            if (duration <= 0) continue;
+            // 時間帯をパース (例: "07:00～15:00")
+            const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
+            if (durationHours <= 0) continue;
 
-            // 定時内か残業かを判定（残業種別があれば残業）
-            const isOvertime = otType && otType.length > 0;
+            // 定時範囲(08:00-17:30)との重なりを計算
+            const regularOverlapStart = Math.max(startMin, REGULAR_START);
+            const regularOverlapEnd = Math.min(endMin, REGULAR_END);
+            const regularMinutes = Math.max(0, regularOverlapEnd - regularOverlapStart);
+            const regularHoursInRange = regularMinutes / 60;
 
-            if (isOvertime) {
-                // 残業中の現場判定
-                if (FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw))) {
-                    overtimeFieldHours += duration;
-                }
-            } else {
-                // 定時内の現場判定
+            // 残業時間 (08:00以前 + 17:30以降)
+            const earlyMinutes = Math.max(0, Math.min(endMin, REGULAR_START) - startMin);
+            const lateMinutes = Math.max(0, endMin - Math.max(startMin, REGULAR_END));
+            const overtimeHoursInRange = (earlyMinutes + lateMinutes) / 60;
+
+            // 定時内分の集計
+            if (regularHoursInRange > 0) {
+                regularTotalHours += regularHoursInRange;
+
+                // 現場判定（定時内）
                 if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
-                    regularFieldHours += duration;
+                    regularFieldHours += regularHoursInRange;
+                }
+            }
+
+            // 残業分の集計（現場判定）
+            if (overtimeHoursInRange > 0) {
+                if (FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw))) {
+                    overtimeFieldHours += overtimeHoursInRange;
                 }
             }
         }
 
         // 集計
-        emp.regularTotal = (emp.regularTotal || 0) + regularHours;
+        emp.regularTotal = (emp.regularTotal || 0) + regularTotalHours;
         emp.regularField = (emp.regularField || 0) + regularFieldHours;
+        emp.overtimeTotal = (emp.overtimeTotal || 0) + totalOvertime;
         emp.overtimeField = (emp.overtimeField || 0) + overtimeFieldHours;
     }
+}
+
+// 時間帯パース (例: "07:00～15:00" → { startMin, endMin, durationHours })
+function parseTimeRange(rangeStr) {
+    const result = { startMin: 0, endMin: 0, durationHours: 0 };
+    if (!rangeStr || typeof rangeStr !== 'string') return result;
+    if (!rangeStr.includes('～') && !rangeStr.includes('~')) return result;
+
+    const [start, end] = rangeStr.split(/[～~]/);
+    if (!start || !end) return result;
+
+    const startParts = start.trim().split(':');
+    const endParts = end.trim().split(':');
+
+    if (startParts.length !== 2 || endParts.length !== 2) return result;
+
+    result.startMin = (parseInt(startParts[0], 10) || 0) * 60 + (parseInt(startParts[1], 10) || 0);
+    result.endMin = (parseInt(endParts[0], 10) || 0) * 60 + (parseInt(endParts[1], 10) || 0);
+
+    // 日またぎ対応
+    if (result.endMin < result.startMin) {
+        result.endMin += 24 * 60;
+    }
+
+    result.durationHours = (result.endMin - result.startMin) / 60;
+    return result;
 }
 
 // ========================================
