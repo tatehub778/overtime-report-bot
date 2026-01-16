@@ -331,15 +331,26 @@ function parseCboReportCsv(csvContent, members, results) {
             const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
             if (durationHours <= 0) continue;
 
-            // 定時範囲との重なりを計算（半休考慮済み）
+            // 定時の終了時刻を動的に決定
+            // 基本は17:30だが、開始が12:00以降の場合は実働8時間確保のため終了を後ろ倒しにする
+            // 例: 12:00開始 → 休憩1h除いて8h労働 → 21:00まで定時、それ以降残業
+            // 簡易的に「開始+9.5h」を定時終了とする（休憩1.5h込み）
+            let currentRegularEnd = regularEnd;
+            if (startMin >= 12 * 60) {
+                // 午後出勤シフトとみなし、定時終了を「開始+9.5時間」まで拡張
+                // ただし深夜(22:00)を超える場合は考慮が必要だが、いったんシンプルに拡張
+                currentRegularEnd = Math.max(regularEnd, startMin + 9.5 * 60);
+            }
+
+            // 定時範囲との重なりを計算
             const regularOverlapStart = Math.max(startMin, regularStart);
-            const regularOverlapEnd = Math.min(endMin, regularEnd);
+            const regularOverlapEnd = Math.min(endMin, currentRegularEnd);
             const regularMinutes = Math.max(0, regularOverlapEnd - regularOverlapStart);
             const regularHoursInRange = regularMinutes / 60;
 
-            // 残業時間 (定時開始前 + 定時終了後)
+            // 残業時間 (定時開始前 + 動的定時終了後)
             const earlyMinutes = Math.max(0, Math.min(endMin, regularStart) - startMin);
-            const lateMinutes = Math.max(0, endMin - Math.max(startMin, regularEnd));
+            const lateMinutes = Math.max(0, endMin - Math.max(startMin, currentRegularEnd));
 
             const earlyHoursInRange = earlyMinutes / 60;
             const lateHoursInRange = lateMinutes / 60;
@@ -355,12 +366,22 @@ function parseCboReportCsv(csvContent, members, results) {
 
                 let actualRegularMinutes = regularMinutes;
 
-                // 各休憩時間との重複分を引く
+                // 各休憩時間との「またぎ」判定を行い、休憩を引く
+                // 条件: 勤務開始 < 休憩開始 && 勤務終了 > 休憩終了
+                // つまり、その休憩時間をフルに休めている場合のみ引く（途中出勤などは引かない）
+                // または単純に「重なり」でもよいが、要望は「12:00開始なら12:00-13:00は休憩じゃない」
+                // → 重複判定だが、「開始時刻が休憩終了時刻以降なら引かない」は自動的に満たされる
+                // 問題は「12:00ちょうどに開始」の場合。
+                // startMin < brk.start とすることで「またぎ」を表現する
+
                 for (const brk of breaks) {
-                    const overlapStart = Math.max(regularOverlapStart, brk.start);
-                    const overlapEnd = Math.min(regularOverlapEnd, brk.end);
-                    if (overlapEnd > overlapStart) {
-                        actualRegularMinutes -= (overlapEnd - overlapStart);
+                    // 勤務時間が休憩時間を完全に内包（またいでいる）している場合のみ引く
+                    if (startMin <= brk.start && endMin >= brk.end) {
+                        const overlapStart = Math.max(regularOverlapStart, brk.start);
+                        const overlapEnd = Math.min(regularOverlapEnd, brk.end);
+                        if (overlapEnd > overlapStart) {
+                            actualRegularMinutes -= (overlapEnd - overlapStart);
+                        }
                     }
                 }
 
@@ -380,7 +401,7 @@ function parseCboReportCsv(csvContent, members, results) {
                 }
             }
 
-            // 定時後残業（17:30以降）の集計
+            // 定時後残業（動的終了時刻以降）の集計
             if (lateHoursInRange > 0) {
                 overtimeTotalHours += lateHoursInRange;
 
@@ -393,7 +414,7 @@ function parseCboReportCsv(csvContent, members, results) {
             }
         }
 
-        // 簡易ロジックによる休憩控除は削除
+        // 休憩控除ロジック（後処理）は廃止し、ループ内での厳密適用のみとする
         const finalRegularTotal = regularTotalHours;
         const finalRegularField = regularFieldHours;
 
