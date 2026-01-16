@@ -259,8 +259,8 @@ function parseCboReportCsv(csvContent, members, results) {
     }
 
     // 現場判定キーワード（画像分析に基づく）
-    const FIELD_KEYWORDS_REGULAR = ['現場', '夜間作業', '夜工事'];
-    const FIELD_KEYWORDS_OVERTIME = ['現場残業', '夜工事残業', '夜間作業'];
+    const FIELD_KEYWORDS_REGULAR = ['現場', '夜間作業', '夜工事', '運搬'];
+    const FIELD_KEYWORDS_OVERTIME = ['現場残業', '夜工事残業', '夜間作業', '運搬'];
 
     // 定時の境界（分単位）
     const REGULAR_START = 8 * 60;  // 08:00 = 480分
