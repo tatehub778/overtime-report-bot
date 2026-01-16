@@ -463,24 +463,41 @@ function parseCboReportCsv(csvContent, members, results) {
 
         // 3. 17:30以降（Late）の分を、残り容量があれば定時に充当（遅出対応）
         let finalOvertimeMinutes = rawEarlyMinutes; // 早出はいったん残業として積む
+
+        // 【修正】現場残業時間は、Total残業からの按分ではなく、積み上げた数値を直接そのまま使う
+        // （G列の残業時間がどうあれ、実働としての現場時間は揺るがないため）
         let finalOvertimeFieldMinutes = fieldMinutesEarlyRange;
 
         // Late分を分配
         if (rawLateMinutes > 0) {
             // 定時枠に吸い込まれる分
             const absorbToRegular = Math.min(rawLateMinutes, remainingRegularCapacity);
-            // 溢れて残業になる分
+            // 溢れて残業になる分（これが給与計算上の残業時間）
             const overflowToOvertime = rawLateMinutes - absorbToRegular;
 
             // 追加定時
             finalRegularMinutes += absorbToRegular;
-            // 現場時間の按分（Late全体のうち、現場だった比率を適用）
-            const lateFieldRatio = rawLateMinutes > 0 ? (fieldMinutesLateRange / rawLateMinutes) : 0;
-            finalRegularFieldMinutes += (absorbToRegular * lateFieldRatio);
 
-            // 追加残業
+            // 現場時間の定時/残業振り分け
+            // Late区間の現場時間 (fieldMinutesLateRange) を、absorbとoverflowの比率で分けるのではなく、
+            // 「定時枠に入った分」と「残業枠に入った分」を時系列で厳密に分けるのが理想だが、
+            // ここでは簡易的に「定時枠に入った分だけ現場時間も定時扱い」とする（あふれた現場時間は残業現場へ）
+
+            // 例: Late全体=4h, 定時充当=1h, 残業=3h
+            // Late現場=4hの場合 → 定時現場=1h, 残業現場=3h となるべき
+
+            // Late区間のうち、定時に吸い込まれた割合
+            const absorbRatio = rawLateMinutes > 0 ? (absorbToRegular / rawLateMinutes) : 0;
+
+            // 現場時間のうち、定時枠に吸い込まれる分
+            const fieldAbsorb = fieldMinutesLateRange * absorbRatio;
+            const fieldOverflow = fieldMinutesLateRange - fieldAbsorb;
+
+            finalRegularFieldMinutes += fieldAbsorb;
+            finalOvertimeFieldMinutes += fieldOverflow;
+
+            // 追加残業（Total）
             finalOvertimeMinutes += overflowToOvertime;
-            finalOvertimeFieldMinutes += (overflowToOvertime * lateFieldRatio);
         }
 
         // 時間単位に変換
