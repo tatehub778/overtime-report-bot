@@ -320,6 +320,25 @@ function parseCboReportCsv(csvContent, members, results) {
         let overtimeFieldHours = 0;
         let overtimeTotalHours = 0; // すべてE列から計算した残業時間の合計
 
+        // 定時内合計、残業合計を一度フラットに計算してから分配する方式に変更
+        // 「基本は1日8時間」というルールに基づく
+
+        let dailyTotalMinutes = 0;      // その日の総労働時間（休憩除く）
+        let dailyFieldMinutes = 0;      // うち現場時間
+        let dailyOvertimeMinutes = 0;   // うち残業時間（計算用）
+
+        // 時間帯ループでまずは総時間を積み上げ
+        // ただし、17:30以降かどうかなどの属性も保持しておく必要があるため、
+        // 従来通りループしつつ、バケツに入れる
+
+        let rawRegularMinutes = 0; // 08:00-17:30 の時間（休憩除く）
+        let rawLateMinutes = 0;    // 17:30以降の時間
+        let rawEarlyMinutes = 0;   // 08:00以前の時間
+
+        let fieldMinutesRegularRange = 0; // 08:00-17:30の現場時間
+        let fieldMinutesLateRange = 0;    // 17:30以降の現場時間
+        let fieldMinutesEarlyRange = 0;   // 08:00以前の現場時間
+
         // K列のインデックス追跡用
         let otTypeIndex = 0;
 
@@ -331,86 +350,121 @@ function parseCboReportCsv(csvContent, members, results) {
             const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
             if (durationHours <= 0) continue;
 
-            // 定時範囲との重なりを計算（半休考慮済み）
-            // 複雑な条件分岐（遅出延長など）は一旦全て廃止し、17:30固定に戻す
+            // 定時範囲(08:00-17:30)との重なり
             const regularOverlapStart = Math.max(startMin, regularStart);
             const regularOverlapEnd = Math.min(endMin, regularEnd);
-            const regularMinutes = Math.max(0, regularOverlapEnd - regularOverlapStart);
-            const regularHoursInRange = regularMinutes / 60;
+            let incrementRegular = Math.max(0, regularOverlapEnd - regularOverlapStart);
 
             // 残業時間 (定時開始前 + 定時終了後)
-            const earlyMinutes = Math.max(0, Math.min(endMin, regularStart) - startMin);
-            const lateMinutes = Math.max(0, endMin - Math.max(startMin, regularEnd));
+            let incrementEarly = Math.max(0, Math.min(endMin, regularStart) - startMin);
+            let incrementLate = Math.max(0, endMin - Math.max(startMin, regularEnd));
 
-            const earlyHoursInRange = earlyMinutes / 60;
-            const lateHoursInRange = lateMinutes / 60;
+            // 休憩控除（厳密なまたぎ判定）
+            const breaks = [
+                { start: 10 * 60, end: 10 * 60 + 15 },
+                { start: 12 * 60, end: 13 * 60 },
+                { start: 15 * 60, end: 15 * 60 + 15 }
+            ];
 
-            // 定時内分の集計（休憩時間を厳密に除外）
-            if (regularHoursInRange > 0) {
-                // 休憩時間帯（分単位）
-                const breaks = [
-                    { start: 10 * 60, end: 10 * 60 + 15 },      // 10:00-10:15
-                    { start: 12 * 60, end: 13 * 60 },           // 12:00-13:00
-                    { start: 15 * 60, end: 15 * 60 + 15 }       // 15:00-15:15
-                ];
-
-                let actualRegularMinutes = regularMinutes;
-
-                // 各休憩時間との「またぎ」判定を行い、休憩を引く
-                // 条件: 勤務開始 < 休憩開始 && 勤務終了 > 休憩終了
-                // つまり、その休憩時間をフルに休めている場合のみ引く（途中出勤などは引かない）
-                // または単純に「重なり」でもよいが、要望は「12:00開始なら12:00-13:00は休憩じゃない」
-                // → 重複判定だが、「開始時刻が休憩終了時刻以降なら引かない」は自動的に満たされる
-                // 問題は「12:00ちょうどに開始」の場合。
-                // startMin < brk.start とすることで「またぎ」を表現する
-
+            // ヘルパー: 指定期間から休憩を引く
+            const deductBreaks = (s, e, duration) => {
+                if (duration <= 0) return 0;
+                let finalDuration = duration;
                 for (const brk of breaks) {
-                    // 勤務時間が休憩時間を完全に内包（またいでいる）している場合のみ引く
-                    if (startMin <= brk.start && endMin >= brk.end) {
-                        const overlapStart = Math.max(regularOverlapStart, brk.start);
-                        const overlapEnd = Math.min(regularOverlapEnd, brk.end);
-                        if (overlapEnd > overlapStart) {
-                            actualRegularMinutes -= (overlapEnd - overlapStart);
-                        }
+                    // 区間 [s, e] が休憩 [brk.start, brk.end] を完全に含んでいる場合のみ引く
+                    // ※ startMin, endMin 全体でまたいでいるかを見るべきだが、
+                    //   ここでは簡易的に当該セグメントがまたいでいれば引く
+                    if (s <= brk.start && e >= brk.end) {
+                        finalDuration -= (brk.end - brk.start);
                     }
                 }
+                return Math.max(0, finalDuration);
+            };
 
-                const actualRegularHours = Math.max(0, actualRegularMinutes) / 60;
-                regularTotalHours += actualRegularHours;
+            // まずこのセグメント全体がまたいでいる休憩の総量を計算し、それを各パーツ（Regular/Late/Early）から按分して引くのが正しいが、
+            // 簡易的に各パーツの期間に対して休憩判定を行う
 
-                if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
-                    regularFieldHours += actualRegularHours;
+            // Regular区間からの控除
+            if (incrementRegular > 0) {
+                const s = regularOverlapStart;
+                const e = regularOverlapEnd;
+                // ただし「またぎ判定」は元のTimeRange全体(startMin, endMin)で見るべき
+                // シフト全体で休憩をまたいでいれば、その休憩時間がRegular期間に含まれるなら引く
+
+                for (const brk of breaks) {
+                    if (startMin <= brk.start && endMin >= brk.end) {
+                        // 休憩時間帯がRegular期間と重なっていれば引く
+                        const overlap = Math.max(0, Math.min(e, brk.end) - Math.max(s, brk.start));
+                        incrementRegular -= overlap;
+                    }
                 }
             }
 
-            // 早出残業（08:00以前）の集計
-            if (earlyHoursInRange > 0) {
-                overtimeTotalHours += earlyHoursInRange;
-                if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
-                    overtimeFieldHours += earlyHoursInRange;
-                }
+            // Late区間（17:30以降）からの控除（深夜休憩などある場合）
+            // ※17:30以降の休憩定義がないため、ここでは引かない（要望にあれば追加）
+
+            rawRegularMinutes += incrementRegular;
+            rawLateMinutes += incrementLate;
+            rawEarlyMinutes += incrementEarly;
+
+            // 現場時間の集計
+            if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
+                if (incrementRegular > 0) fieldMinutesRegularRange += incrementRegular;
+                if (incrementEarly > 0) fieldMinutesEarlyRange += incrementEarly;
             }
 
-            // 定時後残業（動的終了時刻以降）の集計
-            if (lateHoursInRange > 0) {
-                overtimeTotalHours += lateHoursInRange;
-
+            // Late区間はK列判定あり
+            if (incrementLate > 0) {
                 const otType = overtimeTypes[otTypeIndex] || '';
                 otTypeIndex++;
-
                 if (FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw))) {
-                    overtimeFieldHours += lateHoursInRange;
+                    fieldMinutesLateRange += incrementLate;
                 }
             }
         }
 
-        // 休憩控除ロジック（後処理）は廃止し、ループ内での厳密適用のみとする
-        const finalRegularTotal = regularTotalHours;
-        const finalRegularField = regularFieldHours;
+        // ============================================
+        // 集計ロジック: 「1日8時間」を定時枠として優先充当
+        // ============================================
+
+        // 1. まず 08:00-17:30 の実働分は無条件で定時
+        let finalRegularMinutes = rawRegularMinutes;
+        let finalRegularFieldMinutes = fieldMinutesRegularRange;
+
+        // 2. 定時枠の残り容量（8時間 = 480分）
+        // 半休の場合は枠が減る？ → いったんシンプルに「1日8時間」を目指す
+        const regularCapMinutes = 8 * 60;
+        let remainingRegularCapacity = Math.max(0, regularCapMinutes - finalRegularMinutes);
+
+        // 3. 17:30以降（Late）の分を、残り容量があれば定時に充当（遅出対応）
+        let finalOvertimeMinutes = rawEarlyMinutes; // 早出は常に残業（または深夜）扱いとするのが一般的だが、ここでは残業として積む
+        let finalOvertimeFieldMinutes = fieldMinutesEarlyRange;
+
+        // Late分を分配
+        if (rawLateMinutes > 0) {
+            // 定時枠に吸い込まれる分
+            const absorbToRegular = Math.min(rawLateMinutes, remainingRegularCapacity);
+            // 溢れて残業になる分
+            const overflowToOvertime = rawLateMinutes - absorbToRegular;
+
+            // 追加定時
+            finalRegularMinutes += absorbToRegular;
+            // 現場時間の按分（Late全体のうち、現場だった比率を適用）
+            const lateFieldRatio = rawLateMinutes > 0 ? (fieldMinutesLateRange / rawLateMinutes) : 0;
+            finalRegularFieldMinutes += (absorbToRegular * lateFieldRatio);
+
+            // 追加残業
+            finalOvertimeMinutes += overflowToOvertime;
+            finalOvertimeFieldMinutes += (overflowToOvertime * lateFieldRatio);
+        }
+
+        // 時間単位に変換
+        const finalRegularTotal = finalRegularMinutes / 60;
+        const finalRegularField = finalRegularFieldMinutes / 60;
+        const overtimeTotalHours = finalOvertimeMinutes / 60;
+        const overtimeFieldHours = finalOvertimeFieldMinutes / 60;
 
         // 集計
-        // 以前はG列(totalOvertime)を使っていたが、E列積算値(overtimeTotalHours)に変更
-        // これにより、事務残業 = Total - Field が必ず0以上になる（マイナス撲滅）
         emp.regularTotal = (emp.regularTotal || 0) + finalRegularTotal;
         emp.regularField = (emp.regularField || 0) + finalRegularField;
         emp.overtimeTotal = (emp.overtimeTotal || 0) + overtimeTotalHours;
