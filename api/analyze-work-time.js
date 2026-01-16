@@ -317,15 +317,8 @@ function parseCboReportCsv(csvContent, members, results) {
         // 各時間帯から定時/残業の現場時間を算出
         let regularFieldHours = 0;
         let regularTotalHours = 0;
-        let overtimeFieldHours = 0;
-        let overtimeTotalHours = 0; // すべてE列から計算した残業時間の合計
-
         // 定時内合計、残業合計を一度フラットに計算してから分配する方式に変更
         // 「基本は1日8時間」というルールに基づく
-
-        let dailyTotalMinutes = 0;      // その日の総労働時間（休憩除く）
-        let dailyFieldMinutes = 0;      // うち現場時間
-        let dailyOvertimeMinutes = 0;   // うち残業時間（計算用）
 
         // 時間帯ループでまずは総時間を積み上げ
         // ただし、17:30以降かどうかなどの属性も保持しておく必要があるため、
@@ -366,31 +359,11 @@ function parseCboReportCsv(csvContent, members, results) {
                 { start: 15 * 60, end: 15 * 60 + 15 }
             ];
 
-            // ヘルパー: 指定期間から休憩を引く
-            const deductBreaks = (s, e, duration) => {
-                if (duration <= 0) return 0;
-                let finalDuration = duration;
-                for (const brk of breaks) {
-                    // 区間 [s, e] が休憩 [brk.start, brk.end] を完全に含んでいる場合のみ引く
-                    // ※ startMin, endMin 全体でまたいでいるかを見るべきだが、
-                    //   ここでは簡易的に当該セグメントがまたいでいれば引く
-                    if (s <= brk.start && e >= brk.end) {
-                        finalDuration -= (brk.end - brk.start);
-                    }
-                }
-                return Math.max(0, finalDuration);
-            };
-
-            // まずこのセグメント全体がまたいでいる休憩の総量を計算し、それを各パーツ（Regular/Late/Early）から按分して引くのが正しいが、
-            // 簡易的に各パーツの期間に対して休憩判定を行う
-
             // Regular区間からの控除
             if (incrementRegular > 0) {
                 const s = regularOverlapStart;
                 const e = regularOverlapEnd;
-                // ただし「またぎ判定」は元のTimeRange全体(startMin, endMin)で見るべき
-                // シフト全体で休憩をまたいでいれば、その休憩時間がRegular期間に含まれるなら引く
-
+                // またぎ判定：シフト全体(startMin, endMin)で休憩を含んでいるか
                 for (const brk of breaks) {
                     if (startMin <= brk.start && endMin >= brk.end) {
                         // 休憩時間帯がRegular期間と重なっていれば引く
@@ -400,8 +373,7 @@ function parseCboReportCsv(csvContent, members, results) {
                 }
             }
 
-            // Late区間（17:30以降）からの控除（深夜休憩などある場合）
-            // ※17:30以降の休憩定義がないため、ここでは引かない（要望にあれば追加）
+            // Late区間（17:30以降）からの控除（要望にあれば追加、現状なし）
 
             rawRegularMinutes += incrementRegular;
             rawLateMinutes += incrementLate;
@@ -432,12 +404,11 @@ function parseCboReportCsv(csvContent, members, results) {
         let finalRegularFieldMinutes = fieldMinutesRegularRange;
 
         // 2. 定時枠の残り容量（8時間 = 480分）
-        // 半休の場合は枠が減る？ → いったんシンプルに「1日8時間」を目指す
         const regularCapMinutes = 8 * 60;
         let remainingRegularCapacity = Math.max(0, regularCapMinutes - finalRegularMinutes);
 
         // 3. 17:30以降（Late）の分を、残り容量があれば定時に充当（遅出対応）
-        let finalOvertimeMinutes = rawEarlyMinutes; // 早出は常に残業（または深夜）扱いとするのが一般的だが、ここでは残業として積む
+        let finalOvertimeMinutes = rawEarlyMinutes; // 早出はいったん残業として積む
         let finalOvertimeFieldMinutes = fieldMinutesEarlyRange;
 
         // Late分を分配
@@ -461,14 +432,14 @@ function parseCboReportCsv(csvContent, members, results) {
         // 時間単位に変換
         const finalRegularTotal = finalRegularMinutes / 60;
         const finalRegularField = finalRegularFieldMinutes / 60;
-        const overtimeTotalHours = finalOvertimeMinutes / 60;
-        const overtimeFieldHours = finalOvertimeFieldMinutes / 60;
+        const finalOvertimeTotal = finalOvertimeMinutes / 60; // 変数名修正
+        const finalOvertimeField = finalOvertimeFieldMinutes / 60; // 変数名修正
 
         // 集計
         emp.regularTotal = (emp.regularTotal || 0) + finalRegularTotal;
         emp.regularField = (emp.regularField || 0) + finalRegularField;
-        emp.overtimeTotal = (emp.overtimeTotal || 0) + overtimeTotalHours;
-        emp.overtimeField = (emp.overtimeField || 0) + overtimeFieldHours;
+        emp.overtimeTotal = (emp.overtimeTotal || 0) + finalOvertimeTotal;
+        emp.overtimeField = (emp.overtimeField || 0) + finalOvertimeField;
 
         // 詳細データに追加
         results.cboDetails.push({
@@ -476,8 +447,8 @@ function parseCboReportCsv(csvContent, members, results) {
             name: member.name,
             regularTotal: finalRegularTotal,
             regularField: finalRegularField,
-            overtimeTotal: overtimeTotalHours,
-            overtimeField: overtimeFieldHours,
+            overtimeTotal: finalOvertimeTotal,
+            overtimeField: finalOvertimeField,
             holidayWorkHours: 0
         });
     }
