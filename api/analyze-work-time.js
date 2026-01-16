@@ -145,52 +145,48 @@ function parseOfficeCsv(csvContent, members, results) {
         console.error('Office CSV Parse Error:', e);
         return;
     }
-} catch (e) {
-    console.error('Office CSV Parse Error:', e);
-    return;
-}
 
-for (const row of records) {
-    const rawName = row['報告者'] || '';
-    const normName = normalizeName(rawName);
-    if (!members.has(normName)) continue;
+    for (const row of records) {
+        const rawName = row['報告者'] || '';
+        const normName = normalizeName(rawName);
+        if (!members.has(normName)) continue;
 
-    const member = members.get(normName);
-    ensureEmployee(results.employees, member);
+        const member = members.get(normName);
+        ensureEmployee(results.employees, member);
 
-    const emp = results.employees.get(member.id);
+        const emp = results.employees.get(member.id);
 
-    // F列: 残業時間 (時刻形式 "2:30")
-    const overtimeHours = parseTimeToHours(row['残業時間'] || '');
-    emp.officeOvertimeHours = (emp.officeOvertimeHours || 0) + overtimeHours;
+        // F列: 残業時間 (時刻形式 "2:30")
+        const overtimeHours = parseTimeToHours(row['残業時間'] || '');
+        emp.officeOvertimeHours = (emp.officeOvertimeHours || 0) + overtimeHours;
 
-    // 作業内容のカテゴリ分類
-    const taskContent = row['作業内容'] || '';
-    if (!emp.taskCategories) emp.taskCategories = {};
+        // 作業内容のカテゴリ分類
+        const taskContent = row['作業内容'] || '';
+        if (!emp.taskCategories) emp.taskCategories = {};
 
-    // カテゴリ判定（キーワードマッチング）
-    let category = 'その他';
-    if (taskContent.includes('作図')) category = '作図';
-    else if (taskContent.includes('見積') || taskContent.includes('積算')) category = '見積もり';
-    else if (taskContent.includes('雑務')) category = '雑務';
-    else if (taskContent.includes('打合') || taskContent.includes('会議')) category = '打合せ・会議';
-    else if (taskContent.includes('移動')) category = '移動';
+        // カテゴリ判定（キーワードマッチング）
+        let category = 'その他';
+        if (taskContent.includes('作図')) category = '作図';
+        else if (taskContent.includes('見積') || taskContent.includes('積算')) category = '見積もり';
+        else if (taskContent.includes('雑務')) category = '雑務';
+        else if (taskContent.includes('打合') || taskContent.includes('会議')) category = '打合せ・会議';
+        else if (taskContent.includes('移動')) category = '移動';
 
-    emp.taskCategories[category] = (emp.taskCategories[category] || 0) + overtimeHours;
+        emp.taskCategories[category] = (emp.taskCategories[category] || 0) + overtimeHours;
 
-    // 詳細リストに追加
-    if (overtimeHours > 0) {
-        results.officeDetails.push({
-            date: row['作業日'] || '',
-            name: member.name,
-            project: row['案件名'] || '',
-            task: taskContent,
-            hours: overtimeHours,
-            category: category
-        });
+        // 詳細リストに追加
+        if (overtimeHours > 0) {
+            results.officeDetails.push({
+                date: row['作業日'] || '',
+                name: member.name,
+                project: row['案件名'] || '',
+                task: taskContent,
+                hours: overtimeHours,
+                category: category
+            });
+        }
     }
 }
-    }
 
 // ========================================
 // 2. 出勤簿CSV処理
