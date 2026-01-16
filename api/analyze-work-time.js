@@ -277,7 +277,8 @@ function parseAttendanceCsv(csvContent, members, results) {
         results.attendanceMap.set(mapKey, {
             isHalfDay,
             isHolidayWork,
-            holidayWorkHours
+            holidayWorkHours,
+            overtimeHours // H列の値も保存
         });
     }
 }
@@ -503,13 +504,35 @@ function parseCboReportCsv(csvContent, members, results) {
         // 時間単位に変換
         const finalRegularTotal = finalRegularMinutes / 60;
         const finalRegularField = finalRegularFieldMinutes / 60;
-        const finalOvertimeTotal = finalOvertimeMinutes / 60; // 変数名修正
-        const finalOvertimeField = finalOvertimeFieldMinutes / 60; // 変数名修正
 
-        // 集計
+        // 【重要修正】残業合計（Total）は、日報からの計算値ではなく、出勤簿CSV（H列）の値を正とする
+        // 日報計算値(calculatedOvertimeTotal) は、現場残業の内訳計算のために使ったが、
+        // 最終的な合計時間としては採用しない（出勤簿がある場合）
+        const calculatedOvertimeTotal = finalOvertimeMinutes / 60;
+
+        // 出勤簿データの優先適用
+        let displayOvertimeTotal = calculatedOvertimeTotal;
+
+        if (attendanceInfo && typeof attendanceInfo.overtimeHours === 'number') {
+            // 出勤簿にデータがあれば、それを採用
+            displayOvertimeTotal = attendanceInfo.overtimeHours;
+
+            // 集計への加算
+            // 注意: parseAttendanceCsvですでに emp.overtimeTotal に加算されているため、
+            // ここでは加算しない！ (二重計上防止)
+
+        } else {
+            // 出勤簿がない場合は、日報計算値を加算
+            emp.overtimeTotal = (emp.overtimeTotal || 0) + calculatedOvertimeTotal;
+            displayOvertimeTotal = calculatedOvertimeTotal;
+        }
+
+        const finalOvertimeField = finalOvertimeFieldMinutes / 60;
+
+        // 集計（Total以外）
         emp.regularTotal = (emp.regularTotal || 0) + finalRegularTotal;
         emp.regularField = (emp.regularField || 0) + finalRegularField;
-        emp.overtimeTotal = (emp.overtimeTotal || 0) + finalOvertimeTotal;
+        // emp.overtimeTotal は上記if文で制御（出勤簿優先なら加算しない）
         emp.overtimeField = (emp.overtimeField || 0) + finalOvertimeField;
 
         // 詳細データに追加
@@ -518,7 +541,7 @@ function parseCboReportCsv(csvContent, members, results) {
             name: member.name,
             regularTotal: finalRegularTotal,
             regularField: finalRegularField,
-            overtimeTotal: finalOvertimeTotal,
+            overtimeTotal: displayOvertimeTotal, // ここを出勤簿の値にする
             overtimeField: finalOvertimeField,
             holidayWorkHours: attendanceInfo.holidayWorkHours || 0 // 出勤簿から取得した休日出勤時間をセット
         });
