@@ -331,15 +331,35 @@ function parseCboReportCsv(csvContent, members, results) {
             const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
             if (durationHours <= 0) continue;
 
+            // 定時の終了時刻を動的に決定
+            // パターン1: 半休・有給あり → 17:30固定（会社ルール）
+            // パターン2: 半休・有給なしで遅出 → 実働8時間確保のため終了を後ろ倒し
+
+            let currentRegularEnd = regularEnd; // デフォルト 17:30
+
+            // 12:00以降開始で、かつ「半休・有給などの休暇取得がない」場合のみ延長
+            // attendanceInfo.isHalfDay は「半日」の文字が含まれるか
+            // ここではさらに「有給」「代休」「欠勤」などがN/O列に含まれていないかを確認する必要があるが、
+            // 簡易的に isHalfDay と、別途 isPaidLeaveOrSimilar フラグがあればベスト。
+            // 現状 attendanceInfo には isHalfDay しかないため、parseAttendanceCsv で取得した N/O列の生データが必要かも。
+            // いったん isHalfDay (半日休暇) が false なら「遅出勤務」とみなすロジックにする。
+
+            if (startMin >= 12 * 60 && !attendanceInfo.isHalfDay) {
+                // 半休取得なしの遅出（例: 12:00〜21:00勤務）
+                // 定時終了を「開始+9.5時間（休憩1.5h込）」まで拡張
+                // 12:00開始なら 21:30 まで定時扱い
+                currentRegularEnd = Math.max(regularEnd, startMin + 9.5 * 60);
+            }
+
             // 定時範囲との重なりを計算（半休考慮済み）
             const regularOverlapStart = Math.max(startMin, regularStart);
-            const regularOverlapEnd = Math.min(endMin, regularEnd);
+            const regularOverlapEnd = Math.min(endMin, currentRegularEnd);
             const regularMinutes = Math.max(0, regularOverlapEnd - regularOverlapStart);
             const regularHoursInRange = regularMinutes / 60;
 
-            // 残業時間 (定時開始前 + 定時終了後)
+            // 残業時間 (定時開始前 + 動的定時終了後)
             const earlyMinutes = Math.max(0, Math.min(endMin, regularStart) - startMin);
-            const lateMinutes = Math.max(0, endMin - Math.max(startMin, regularEnd));
+            const lateMinutes = Math.max(0, endMin - Math.max(startMin, currentRegularEnd));
 
             const earlyHoursInRange = earlyMinutes / 60;
             const lateHoursInRange = lateMinutes / 60;
