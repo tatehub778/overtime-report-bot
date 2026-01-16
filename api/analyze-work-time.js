@@ -48,7 +48,9 @@ module.exports = async (req, res) => {
             overtimeField: round(emp.overtimeField || 0),
             overtimeOffice: round((emp.overtimeTotal || 0) - (emp.overtimeField || 0)),
             // 事務残業（従来機能）
-            officeOvertimeHours: round(emp.officeOvertimeHours || 0)
+            officeOvertimeHours: round(emp.officeOvertimeHours || 0),
+            // カテゴリ別
+            taskCategories: emp.taskCategories || {}
         }));
 
         return res.status(200).json({
@@ -122,14 +124,29 @@ function parseOfficeCsv(csvContent, members, results) {
         const overtimeHours = parseTimeToHours(row['残業時間'] || '');
         emp.officeOvertimeHours = (emp.officeOvertimeHours || 0) + overtimeHours;
 
+        // 作業内容のカテゴリ分類
+        const taskContent = row['作業内容'] || '';
+        if (!emp.taskCategories) emp.taskCategories = {};
+
+        // カテゴリ判定（キーワードマッチング）
+        let category = 'その他';
+        if (taskContent.includes('作図')) category = '作図';
+        else if (taskContent.includes('見積') || taskContent.includes('積算')) category = '見積もり';
+        else if (taskContent.includes('雑務')) category = '雑務';
+        else if (taskContent.includes('打合') || taskContent.includes('会議')) category = '打合せ・会議';
+        else if (taskContent.includes('移動')) category = '移動';
+
+        emp.taskCategories[category] = (emp.taskCategories[category] || 0) + overtimeHours;
+
         // 詳細リストに追加
         if (overtimeHours > 0) {
             results.officeDetails.push({
                 date: row['作業日'] || '',
                 name: member.name,
                 project: row['案件名'] || '',
-                task: row['作業内容'] || '',
-                hours: overtimeHours
+                task: taskContent,
+                hours: overtimeHours,
+                category: category
             });
         }
     }
