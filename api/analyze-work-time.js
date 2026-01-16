@@ -50,7 +50,9 @@ module.exports = async (req, res) => {
             // 事務残業（従来機能）
             officeOvertimeHours: round(emp.officeOvertimeHours || 0),
             // カテゴリ別
-            taskCategories: emp.taskCategories || {}
+            taskCategories: emp.taskCategories || {},
+            // 休日出勤
+            holidayWorkHours: round(emp.holidayWorkHours || 0)
         }));
 
         return res.status(200).json({
@@ -154,7 +156,8 @@ function parseOfficeCsv(csvContent, members, results) {
 
 // ========================================
 // 2. 出勤簿CSV処理
-// A:日付 B:曜日 C:報告者 H:残業(h)数値
+// A:日付 B:曜日 C:報告者 H:残業(h) J:休出(h) N:有給 O:代休
+// → 日付×社員のマップを作成（半休・休日出勤判定用）
 // ========================================
 function parseAttendanceCsv(csvContent, members, results) {
     let records;
@@ -170,6 +173,9 @@ function parseAttendanceCsv(csvContent, members, results) {
         return;
     }
 
+    // 日付×社員の勤怠情報マップ
+    if (!results.attendanceMap) results.attendanceMap = new Map();
+
     for (const row of records) {
         const rawName = row['報告者'] || '';
         const normName = normalizeName(rawName);
@@ -180,9 +186,33 @@ function parseAttendanceCsv(csvContent, members, results) {
 
         const emp = results.employees.get(member.id);
 
-        // H列: 残業(h) (数値形式 "6.5")
+        // H列: 残業(h)
         const overtimeHours = parseFloat(row['残業(h)'] || '0') || 0;
         emp.overtimeTotal = (emp.overtimeTotal || 0) + overtimeHours;
+
+        // J列: 休出(h)
+        const holidayWorkHours = parseFloat(row['休出(h)'] || '0') || 0;
+        if (holidayWorkHours > 0) {
+            emp.holidayWorkHours = (emp.holidayWorkHours || 0) + holidayWorkHours;
+        }
+
+        // 日付を正規化 (例: "2025/12/10" → "2025年12月10日")
+        const dateStr = row['日付'] || '';
+        const dateKey = normalizeDate(dateStr);
+
+        // N列・O列: 有給・代休（半日判定用）
+        const paidLeave = row['有給'] || '';
+        const compensatoryLeave = row['代休'] || '';
+        const isHalfDay = paidLeave.includes('半日') || compensatoryLeave.includes('半日');
+        const isHolidayWork = holidayWorkHours > 0;
+
+        // マップに保存（日付 + 氏名をキーに）
+        const mapKey = `${dateKey}_${member.name}`;
+        results.attendanceMap.set(mapKey, {
+            isHalfDay,
+            isHolidayWork,
+            holidayWorkHours
+        });
     }
 }
 
@@ -224,6 +254,16 @@ function parseCboReportCsv(csvContent, members, results) {
 
         const emp = results.employees.get(member.id);
 
+        // 作業日を正規化してマップキー作成
+        const workDate = row['作業日'] || '';
+        const mapKey = `${workDate}_${member.name}`;
+        const attendanceInfo = results.attendanceMap?.get(mapKey) || {};
+
+        // 休日出勤の場合は全て休日出勤時間としてカウント（出勤簿で集計済み）
+        if (attendanceInfo.isHolidayWork) {
+            continue;
+        }
+
         // セル内改行を分割
         const workTimes = (row['作業時間'] || '').split('\n').map(s => s.trim()).filter(Boolean);
         const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split('\n').map(s => s.trim());
@@ -236,6 +276,26 @@ function parseCboReportCsv(csvContent, members, results) {
 
         // 残業合計 = G + L
         const totalOvertime = overtimeG + earlyL;
+
+        // 定時の境界を決定
+        let regularStart = REGULAR_START;  // デフォルト: 08:00
+        let regularEnd = REGULAR_END;      // デフォルト: 17:30
+
+        // 半休の場合
+        if (attendanceInfo.isHalfDay && workTimes.length > 0) {
+            const { startMin } = parseTimeRange(workTimes[0]);
+
+            // 午後からの場合（例: 12:00～）
+            if (startMin >= 12 * 60) {
+                regularStart = startMin;  // 開始時刻から
+                regularEnd = REGULAR_END;  // 17:30まで
+            } else {
+                // 午前のみの場合
+                regularStart = REGULAR_START;  // 08:00から
+                // 終了時刻は定時終了時刻（17:30）より前
+                regularEnd = Math.min(REGULAR_END, startMin + 5.5 * 60);
+            }
+        }
 
         // 各時間帯から定時/残業の現場時間を算出
         let regularFieldHours = 0;
@@ -251,15 +311,15 @@ function parseCboReportCsv(csvContent, members, results) {
             const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
             if (durationHours <= 0) continue;
 
-            // 定時範囲(08:00-17:30)との重なりを計算
-            const regularOverlapStart = Math.max(startMin, REGULAR_START);
-            const regularOverlapEnd = Math.min(endMin, REGULAR_END);
+            // 定時範囲との重なりを計算（半休考慮済み）
+            const regularOverlapStart = Math.max(startMin, regularStart);
+            const regularOverlapEnd = Math.min(endMin, regularEnd);
             const regularMinutes = Math.max(0, regularOverlapEnd - regularOverlapStart);
             const regularHoursInRange = regularMinutes / 60;
 
-            // 残業時間 (08:00以前 + 17:30以降)
-            const earlyMinutes = Math.max(0, Math.min(endMin, REGULAR_START) - startMin);
-            const lateMinutes = Math.max(0, endMin - Math.max(startMin, REGULAR_END));
+            // 残業時間 (定時開始前 + 定時終了後)
+            const earlyMinutes = Math.max(0, Math.min(endMin, regularStart) - startMin);
+            const lateMinutes = Math.max(0, endMin - Math.max(startMin, regularEnd));
             const overtimeHoursInRange = (earlyMinutes + lateMinutes) / 60;
 
             // 定時内分の集計
@@ -317,6 +377,19 @@ function parseTimeRange(rangeStr) {
 // ========================================
 // ユーティリティ関数
 // ========================================
+
+function normalizeDate(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return '';
+
+    // "2025/12/10" → "2025年12月10日"
+    const match = dateStr.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+    if (match) {
+        return `${match[1]}年${parseInt(match[2])}月${parseInt(match[3])}日`;
+    }
+
+    // 既に "2025年12月10日" の場合はそのまま
+    return dateStr;
+}
 
 function ensureEmployee(empMap, member) {
     if (!empMap.has(member.id)) {
