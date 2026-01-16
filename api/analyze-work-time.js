@@ -285,16 +285,12 @@ function parseCboReportCsv(csvContent, members, results) {
         if (attendanceInfo.isHalfDay && workTimes.length > 0) {
             const { startMin } = parseTimeRange(workTimes[0]);
 
-            // 午後からの場合（例: 12:00～）
+            // 午後からの場合（例: 12:00～17:30）
             if (startMin >= 12 * 60) {
-                regularStart = startMin;  // 開始時刻から
-                regularEnd = REGULAR_END;  // 17:30まで
-            } else {
-                // 午前のみの場合
-                regularStart = REGULAR_START;  // 08:00から
-                // 終了時刻は定時終了時刻（17:30）より前
-                regularEnd = Math.min(REGULAR_END, startMin + 5.5 * 60);
+                regularStart = startMin;  // 開始時刻から17:30まで
             }
+            // 午前のみの場合は、08:00～12:00程度で定時終了
+            // 特に境界調整は不要（E列の時間帯が正しければ自動的に計算される）
         }
 
         // 各時間帯から定時/残業の現場時間を算出
@@ -302,12 +298,14 @@ function parseCboReportCsv(csvContent, members, results) {
         let regularTotalHours = 0;
         let overtimeFieldHours = 0;
 
+        // K列のインデックス追跡用
+        let otTypeIndex = 0;
+
         for (let i = 0; i < workTimes.length; i++) {
             const timeRange = workTimes[i];
             const content = workContents[i] || '';
-            const otType = overtimeTypes[i] || '';
 
-            // 時間帯をパース (例: "07:00～15:00")
+            // 時間帯をパース
             const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
             if (durationHours <= 0) continue;
 
@@ -320,22 +318,34 @@ function parseCboReportCsv(csvContent, members, results) {
             // 残業時間 (定時開始前 + 定時終了後)
             const earlyMinutes = Math.max(0, Math.min(endMin, regularStart) - startMin);
             const lateMinutes = Math.max(0, endMin - Math.max(startMin, regularEnd));
-            const overtimeHoursInRange = (earlyMinutes + lateMinutes) / 60;
+
+            const earlyHoursInRange = earlyMinutes / 60;
+            const lateHoursInRange = lateMinutes / 60;
 
             // 定時内分の集計
             if (regularHoursInRange > 0) {
                 regularTotalHours += regularHoursInRange;
-
-                // 現場判定（定時内）
                 if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
                     regularFieldHours += regularHoursInRange;
                 }
             }
 
-            // 残業分の集計（現場判定）
-            if (overtimeHoursInRange > 0) {
+            // 早出残業（08:00以前）の集計
+            // K列には記載がないため、作業内容(I列)で判定（現場キーワードが含まれれば現場残業扱いとする）
+            if (earlyHoursInRange > 0) {
+                if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
+                    overtimeFieldHours += earlyHoursInRange;
+                }
+            }
+
+            // 定時後残業（17:30以降）の集計
+            // ここで初めてK列の要素を消費する
+            if (lateHoursInRange > 0) {
+                const otType = overtimeTypes[otTypeIndex] || ''; // K列から順に取得
+                otTypeIndex++; // 次の残業発生ブロックのためにインクリメント
+
                 if (FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw))) {
-                    overtimeFieldHours += overtimeHoursInRange;
+                    overtimeFieldHours += lateHoursInRange;
                 }
             }
         }
