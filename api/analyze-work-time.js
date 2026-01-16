@@ -493,7 +493,7 @@ function parseCboReportCsv(csvContent, members, results) {
             regularField: finalRegularField,
             overtimeTotal: finalOvertimeTotal,
             overtimeField: finalOvertimeField,
-            holidayWorkHours: 0
+            holidayWorkHours: attendanceInfo.holidayWorkHours || 0 // 出勤簿から取得した休日出勤時間をセット
         });
     }
 }

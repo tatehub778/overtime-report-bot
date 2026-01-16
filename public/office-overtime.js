@@ -138,8 +138,9 @@ function createPeriodFilter(details) {
     });
 
     // フィルターUI作成
+    // フィルターUI作成
     const filterHtml = `
-    < div class="period-filter" style = "margin-bottom: 20px; text-align: center;" >
+    <div class="period-filter" style="margin-bottom: 20px; text-align: center;">
             <label style="margin-right: 10px; font-weight: bold;">期間:</label>
             <select id="periodSelect" style="padding: 8px 15px; border-radius: 6px; border: 1px solid #cbd5e1;">
                 <option value="all">全期間</option>
@@ -151,7 +152,7 @@ function createPeriodFilter(details) {
         return `<option value="${fy}">${year}年度 (${year}/4～${year + 1}/3)</option>`;
     }).join('')}
             </select>
-        </div >
+        </div>
     `;
 
     const resultsSection = document.getElementById('resultsSection');
@@ -327,11 +328,12 @@ function renderResults(result) {
             acc.regularField += emp.regularField;
             acc.overtimeTotal += emp.overtimeTotal;
             acc.overtimeField += emp.overtimeField;
+            acc.holidayWorkHours += emp.holidayWorkHours;
             // officeOvertimeHoursは (overtimeTotal - overtimeField) で算出
             return acc;
-        }, { regularTotal: 0, regularField: 0, overtimeTotal: 0, overtimeField: 0 });
+        }, { regularTotal: 0, regularField: 0, overtimeTotal: 0, overtimeField: 0, holidayWorkHours: 0 });
 
-        const totalHoliday = filteredSummaryCbo.reduce((sum, emp) => sum + emp.holidayWorkHours, 0);
+        const totalHoliday = totalsAll.holidayWorkHours;
 
         document.getElementById('summaryCards').innerHTML = `
             <div class="summary-card">
@@ -381,9 +383,39 @@ function renderResults(result) {
             if (emp && emp.salesMap) {
                 if (currentPeriod === 'all') {
                     salesAmount = Object.values(emp.salesMap).reduce((a, b) => a + b, 0);
+                } else if (currentPeriod.startsWith('FY-')) {
+                    // 年度集計 (FY-2025 -> 2025/04 ~ 2026/03)
+                    const fy = parseInt(currentPeriod.split('-')[1]);
+                    Object.entries(emp.salesMap).forEach(([ym, val]) => {
+                        const [y, m] = ym.split('/').map(Number);
+                        const itemFy = m >= 4 ? y : y - 1;
+                        if (itemFy === fy) salesAmount += val;
+                    });
                 } else {
+                    // 月次集計 (2025-11 -> 2025/11)
+                    // salesMapのキーは "2025/11" (または "2025/04" のようにパディング済み)
+                    // currentPeriodは "2025-11" の形式。ハイフンをスラッシュに置換
                     const periodKey = currentPeriod.replace('-', '/');
-                    salesAmount = emp.salesMap[periodKey] || 0;
+                    // キー一致確認 (パディングの違いを吸収するため念のためチェック)
+                    Object.keys(emp.salesMap).forEach(key => {
+                        // key: "2025/04", periodKey: "2025/4" のようなケースも考慮
+                        // 単純比較でまずはトライ
+                        if (key === periodKey) {
+                            salesAmount += emp.salesMap[key];
+                        } else {
+                            // パディングなし/ありの互換チェック
+                            const parts = key.split('/');
+                            const pYear = parts[0];
+                            const pMonth = parseInt(parts[1]);
+                            const targetParts = periodKey.split('/');
+                            const tYear = targetParts[0];
+                            const tMonth = parseInt(targetParts[1]);
+
+                            if (pYear == tYear && pMonth == tMonth) {
+                                salesAmount += emp.salesMap[key];
+                            }
+                        }
+                    });
                 }
             }
 
