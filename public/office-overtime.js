@@ -373,41 +373,38 @@ function renderResults(result) {
     `;
 
         tbody.innerHTML = ''; // Clear existing rows
-        sortedStats.forEach(stat => {
-            const regularOffice = stat.regularTotal - stat.regularField;
-            const overtimeOffice = stat.overtimeTotal - stat.overtimeField;
-
+        filteredSummaryCbo.forEach(stat => {
             // 売上高の算出
-            // salesMap: { "2025/12": 1500000, ... }
             let salesAmount = 0;
             const emp = Object.values(result.employees).find(e => e.name === stat.name);
             if (emp && emp.salesMap) {
                 if (currentPeriod === 'all') {
                     salesAmount = Object.values(emp.salesMap).reduce((a, b) => a + b, 0);
                 } else {
-                    // "2025/12" の形式で検索
-                    // currentPeriod は "2025-12" の形式
                     const periodKey = currentPeriod.replace('-', '/');
                     salesAmount = emp.salesMap[periodKey] || 0;
                 }
             }
 
+            const regularPct = stat.regularTotal > 0 ? (stat.regularField / stat.regularTotal * 100) : 0;
+            const otPct = stat.overtimeTotal > 0 ? (stat.overtimeField / stat.overtimeTotal * 100) : 0;
+
             const row = document.createElement('tr');
             row.innerHTML = `
     < td > <strong>${stat.name}</strong></td >
-                        <td class="numeric">${stat.regularTotal.toFixed(1)}</td>
-                        <td class="numeric" style="color:#059669;">${stat.regularField.toFixed(1)}</td>
-                        <td class="numeric">${regularOffice.toFixed(1)}</td>
-                        <td class="numeric">${stat.overtimeTotal.toFixed(1)}</td>
-                        <td class="numeric" style="color:#d97706;">${stat.overtimeField.toFixed(1)}</td>
-                        <td class="numeric">${overtimeOffice.toFixed(1)}</td>
-                        <td class="numeric" style="color:#2563eb; font-weight:bold">¥${salesAmount.toLocaleString()}</td>
-                        <td>
-                            <div class="bar-container" title="定時:現場${(stat.regularTotal > 0 ? (stat.regularField / stat.regularTotal * 100) : 0).toFixed(0)}%, 残業:現場${(stat.overtimeTotal > 0 ? (stat.overtimeField / stat.overtimeTotal * 100) : 0).toFixed(0)}%">
-                                <div class="bar-field" style="width:${(stat.overtimeTotal > 0 ? (stat.overtimeField / stat.overtimeTotal * 100) : 0) / 2}%;"></div>
-                                <div class="bar-office" style="width:${(stat.overtimeTotal > 0 ? (overtimeOffice / stat.overtimeTotal * 100) : 0) / 2}%;"></div>
-                            </div>
-                        </td>
+                <td class="numeric">${stat.regularTotal.toFixed(1)}</td>
+                <td class="numeric" style="color:#059669;">${stat.regularField.toFixed(1)}</td>
+                <td class="numeric">${stat.regularOffice.toFixed(1)}</td>
+                <td class="numeric">${stat.overtimeTotal.toFixed(1)}</td>
+                <td class="numeric" style="color:#d97706;">${stat.overtimeField.toFixed(1)}</td>
+                <td class="numeric">${stat.overtimeOffice.toFixed(1)}</td>
+                <td class="numeric" style="color:#2563eb; font-weight:bold">¥${salesAmount.toLocaleString()}</td>
+                <td>
+                    <div class="bar-container" title="定時:現場${regularPct.toFixed(0)}%, 残業:現場${otPct.toFixed(0)}%">
+                        <div class="bar-field" style="width:${regularPct / 2}%;"></div>
+                        <div class="bar-office" style="width:${otPct / 2}%;"></div>
+                    </div>
+                </td>
 `;
             tbody.appendChild(row);
         });

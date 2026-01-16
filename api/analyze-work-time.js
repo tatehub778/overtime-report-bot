@@ -21,44 +21,9 @@ module.exports = async (req, res) => {
             employees: new Map(),
             officeDetails: [],
             cboDetails: [],
-            // 結果を配列に変換
-            const summary = Array.from(results.employees.values()).map(emp => ({
-                name: emp.name,
-                // 定時内
-                regularTotal: round(emp.regularTotal || 0),
-                regularField: round(emp.regularField || 0),
-                regularOffice: round((emp.regularTotal || 0) - (emp.regularField || 0)),
-                // 残業
-                overtimeTotal: round(emp.overtimeTotal || 0),
-                overtimeField: round(emp.overtimeField || 0),
-                overtimeOffice: round((emp.overtimeTotal || 0) - (emp.overtimeField || 0)),
-                // 事務残業（従来機能）
-                officeOvertimeHours: round(emp.officeOvertimeHours || 0),
-                // カテゴリ別
-                taskCategories: emp.taskCategories || {},
-                // 休日出勤
-                holidayWorkHours: round(emp.holidayWorkHours || 0)
-            }));
-
-            return res.status(200).json({
-                summary,
-                officeDetails: results.officeDetails,
-                cboDetails: results.cboDetails
-            });
-
-        } catch (error) {
-            console.error('Analysis error:', error);
-            return res.status(500).json({ error: '分析中にエラーが発生しました', details: error.message });
-        }
-    };
-
-    function round(num) {
-        return Math.round(num * 100) / 100;
-    }
-
-    // 管理メンバーの取得
-    async function getManagementMembers() {
-        const members = new Map();
+            // 管理メンバーの取得
+            async function getManagementMembers() {
+                const members = new Map();
         try {
             const ids = await kv.smembers('employees:all');
             if (!ids) return members;
