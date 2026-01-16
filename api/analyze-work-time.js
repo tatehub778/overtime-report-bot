@@ -331,10 +331,10 @@ function parseCboReportCsv(csvContent, members, results) {
             continue;
         }
 
-        // セル内改行を分割（\r\n, \n 両対応）
-        const workTimes = (row['作業時間'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        // セル内改行を分割（\r\n, \n 両対応）。インデックスを合わせるため filter(Boolean) はしない
+        const workTimes = (row['作業時間'] || '').split(/\r?\n/);
+        const workContents = (row['作業内容（管理者日報）'] || row['作業内容(管理者日報)'] || '').split(/\r?\n/);
+        const overtimeTypes = (row['残業種別（管理者日報）'] || row['残業種別(管理者日報)'] || '').split(/\r?\n/);
 
         // G列: 残業時間 (17:30以降)
         const overtimeG = parseTimeToHours(row['残業時間'] || '');
@@ -349,8 +349,10 @@ function parseCboReportCsv(csvContent, members, results) {
         let regularEnd = REGULAR_END;      // デフォルト: 17:30
 
         // 半休の場合
-        if (attendanceInfo.isHalfDay && workTimes.length > 0) {
-            const { startMin } = parseTimeRange(workTimes[0]);
+        // workTimes[0] が存在するか確認が必要（空行の可能性もあるが、通常先頭にあるとする）
+        const firstTimeRange = workTimes.find(s => s.trim()) || '';
+        if (attendanceInfo.isHalfDay && firstTimeRange) {
+            const { startMin } = parseTimeRange(firstTimeRange.trim());
 
             // 午後からの場合（例: 12:00～17:30）
             if (startMin >= 12 * 60) {
@@ -362,12 +364,6 @@ function parseCboReportCsv(csvContent, members, results) {
         // 各時間帯から定時/残業の現場時間を算出
         let regularFieldHours = 0;
         let regularTotalHours = 0;
-        // 定時内合計、残業合計を一度フラットに計算してから分配する方式に変更
-        // 「基本は1日8時間」というルールに基づく
-
-        // 時間帯ループでまずは総時間を積み上げ
-        // ただし、17:30以降かどうかなどの属性も保持しておく必要があるため、
-        // 従来通りループしつつ、バケツに入れる
 
         let rawRegularMinutes = 0; // 08:00-17:30 の時間（休憩除く）
         let rawLateMinutes = 0;    // 17:30以降の時間
@@ -377,12 +373,15 @@ function parseCboReportCsv(csvContent, members, results) {
         let fieldMinutesLateRange = 0;    // 17:30以降の現場時間
         let fieldMinutesEarlyRange = 0;   // 08:00以前の現場時間
 
-        // K列のインデックス追跡用
-        let otTypeIndex = 0;
+        // インデックス同期ループ
+        const maxLen = Math.max(workTimes.length, workContents.length, overtimeTypes.length);
 
-        for (let i = 0; i < workTimes.length; i++) {
-            const timeRange = workTimes[i];
-            const content = workContents[i] || '';
+        for (let i = 0; i < maxLen; i++) {
+            const timeRange = (workTimes[i] || '').trim();
+            const content = (workContents[i] || '').trim();
+            const otType = (overtimeTypes[i] || '').trim();
+
+            if (!timeRange) continue; // 時間が書いてない行はスキップ
 
             // 時間帯をパース
             const { startMin, endMin, durationHours } = parseTimeRange(timeRange);
@@ -424,27 +423,24 @@ function parseCboReportCsv(csvContent, members, results) {
             rawLateMinutes += incrementLate;
             rawEarlyMinutes += incrementEarly;
 
-            // 現場時間の集計
+            // 現場時間の集計 (Early/RegularはI列依存)
             if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
                 if (incrementRegular > 0) fieldMinutesRegularRange += incrementRegular;
                 if (incrementEarly > 0) fieldMinutesEarlyRange += incrementEarly;
             }
 
-            // Late区間はK列判定あり
+            // Late区間はK列(otType)の行ごとの値を優先
             if (incrementLate > 0) {
-                const otType = overtimeTypes[otTypeIndex] || '';
-                otTypeIndex++;
-
-                // 明示的な判定
-                const isExplicitField = FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw));
-                const isExplicitOffice = otType.includes('事務') || otType.includes('内勤') || otType.includes('見積');
-
-                if (isExplicitField) {
-                    fieldMinutesLateRange += incrementLate;
-                } else if (isExplicitOffice) {
-                    // 明示的に事務なら現場時間には加算しない
+                // K列に何か書いてある場合
+                if (otType.length > 0) {
+                    if (FIELD_KEYWORDS_OVERTIME.some(kw => otType.includes(kw))) {
+                        // 現場残業キーワードにヒット → 現場
+                        fieldMinutesLateRange += incrementLate;
+                    } else {
+                        // 書いてあるがヒットしない → 事務（カウントしない）
+                    }
                 } else {
-                    // K列が空欄、または判定不能な場合はI列（作業内容）で判定（フォールバック）
+                    // K列が空欄の場合 → I列(content)でフォールバック判定
                     if (FIELD_KEYWORDS_REGULAR.some(kw => content.includes(kw))) {
                         fieldMinutesLateRange += incrementLate;
                     }
