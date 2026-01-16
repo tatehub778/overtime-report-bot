@@ -38,7 +38,7 @@ module.exports = async (req, res) => {
             employees: Object.fromEntries(results.employees)
         };
 
-        // サマリーの計算
+        // サマリーの計算（全体合計）
         let totalOvertime = 0;
         let fieldOvertime = 0;
         let holidayWorkHours = 0;
@@ -49,12 +49,35 @@ module.exports = async (req, res) => {
             holidayWorkHours += (emp.holidayWorkHours || 0);
         }
 
-        finalResults.summary.totalOvertime = round(totalOvertime);
-        finalResults.summary.fieldOvertime = round(fieldOvertime);
-        finalResults.summary.officeOvertime = round(totalOvertime - fieldOvertime);
-        finalResults.summary.holidayWorkHours = round(holidayWorkHours);
+        const globalSummary = {
+            totalOvertime: round(totalOvertime),
+            fieldOvertime: round(fieldOvertime),
+            officeOvertime: round(totalOvertime - fieldOvertime),
+            holidayWorkHours: round(holidayWorkHours)
+        };
 
-        res.status(200).json(finalResults);
+        // 各社員のサマリー配列を作成
+        const summary = Array.from(results.employees.values()).map(emp => ({
+            name: emp.name,
+            regularTotal: round(emp.regularTotal || 0),
+            regularField: round(emp.regularField || 0),
+            regularOffice: round((emp.regularTotal || 0) - (emp.regularField || 0)),
+            overtimeTotal: round(emp.overtimeTotal || 0),
+            overtimeField: round(emp.overtimeField || 0),
+            overtimeOffice: round((emp.overtimeTotal || 0) - (emp.overtimeField || 0)),
+            officeOvertimeHours: round(emp.officeOvertimeHours || 0),
+            taskCategories: emp.taskCategories || {},
+            holidayWorkHours: round(emp.holidayWorkHours || 0),
+            salesMap: emp.salesMap || {}
+        }));
+
+        res.status(200).json({
+            globalSummary,
+            summary,
+            employees: Object.fromEntries(results.employees),
+            officeDetails: results.officeDetails,
+            cboDetails: results.cboDetails
+        });
 
     } catch (e) {
         console.error(e);
