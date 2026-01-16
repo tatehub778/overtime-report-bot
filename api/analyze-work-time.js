@@ -322,7 +322,8 @@ function parseCboReportCsv(csvContent, members, results) {
 
         // 作業日を正規化してマップキー作成
         const workDate = row['作業日'] || '';
-        const mapKey = `${workDate}_${member.name}`;
+        const dateKey = normalizeDate(workDate);
+        const mapKey = `${dateKey}_${member.name}`;
         const attendanceInfo = results.attendanceMap?.get(mapKey) || {};
 
         // 休日出勤の場合は全て休日出勤時間としてカウント（出勤簿で集計済み）

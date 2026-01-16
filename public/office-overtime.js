@@ -129,11 +129,11 @@ function createPeriodFilter(details) {
         if (match) {
             const year = parseInt(match[1]);
             const month = parseInt(match[2]);
-            months.add(`${year} -${String(month).padStart(2, '0')} `);
+            months.add(`${year}-${String(month).padStart(2, '0')}`);
 
             // 年度計算（4月始まり）
             const fy = month >= 4 ? year : year - 1;
-            fiscalYears.add(`FY - ${fy} `);
+            fiscalYears.add(`FY-${fy}`);
         }
     });
 
@@ -182,7 +182,7 @@ function filterByPeriod(details) {
             const itemFy = month >= 4 ? year : year - 1;
             return itemFy === fy;
         } else {
-            const periodYM = `${year} -${String(month).padStart(2, '0')} `;
+            const periodYM = `${year}-${String(month).padStart(2, '0')}`;
             return periodYM === currentPeriod;
         }
     });
