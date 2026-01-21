@@ -621,7 +621,6 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                             </label>
                         </div>
                     </div>
-                    </div>
                     ${renderSystemDetails(record, emp.employee, isLocked)}
                     
                     ${isLocked ? `
