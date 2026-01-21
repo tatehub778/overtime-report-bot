@@ -79,6 +79,24 @@ export default async function handler(req, res) {
             });
         }
 
+        // --- 永続化対応: チェック状態を別途保存 ---
+        const checksKey = `verification_checks:${month}`;
+        const checkField = `${employee}|${date}`;
+
+        // 既存の保存済みチェック状態を取得
+        let savedCheck = await kv.hget(checksKey, checkField) || {};
+
+        // 更新
+        if (checkType === 'self') {
+            savedCheck.self = checked;
+            savedCheck.self_at = checked ? new Date().toISOString() : null;
+        } else if (checkType === 'admin') {
+            savedCheck.admin = checked;
+            savedCheck.admin_at = checked ? new Date().toISOString() : null;
+        }
+
+        await kv.hset(checksKey, { [checkField]: savedCheck });
+
         // 更新した検証結果を保存
         await kv.set(verificationKey, verificationData);
 

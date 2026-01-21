@@ -573,13 +573,19 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                 statusText = '打刻自体なし（CBO・システムともに記録なし）';
             }
 
+            // ロック判定: 本人と事務の両方がチェック済みの場合
+            const isLocked = record.self_checked && record.admin_checked;
+            const lockedClass = isLocked ? 'locked-row' : '';
+            const lockedStyle = isLocked ? 'style="background-color: #f3f4f6; opacity: 0.9;"' : '';
+
             html += `
-                <div class="record-row ${record.status}">
+                <div class="record-row ${record.status} ${lockedClass}" ${lockedStyle}>
                     <div class="record-main">
                         <div class="record-info">
                             <span class="record-icon">${record.icon}</span>
                             <span class="record-date">${date}</span>
                             <span class="record-status" style="color: ${statusColor};">${statusText}</span>
+                            ${isLocked ? '<span class="lock-badge" style="margin-left:10px; font-size: 0.8em; background:#6B7280; color:white; padding: 2px 6px; border-radius:4px;">🔒 ロック中</span>' : ''}
                         </div>
                         
                         <div class="record-checks">
@@ -590,8 +596,10 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                                     data-month="${verificationData.month}"
                                     data-employee="${emp.employee}"
                                     data-date="${record.date}"
+                                    data-date="${record.date}"
                                     data-type="self"
                                     ${record.self_checked ? 'checked' : ''}
+                                    ${isLocked ? 'disabled' : ''}
                                     onchange="handleCheckChange(this)">
                                 <span>本人</span>
                             </label>
@@ -604,13 +612,27 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
                                     data-employee="${emp.employee}"
                                     data-date="${record.date}"
                                     data-type="admin"
+                                    data-date="${record.date}"
+                                    data-type="admin"
                                     ${record.admin_checked ? 'checked' : ''}
+                                    ${isLocked ? 'disabled' : ''}
                                     onchange="handleCheckChange(this)">
                                 <span>事務</span>
                             </label>
                         </div>
                     </div>
-                    ${renderSystemDetails(record, emp.employee)}
+                    </div>
+                    ${renderSystemDetails(record, emp.employee, isLocked)}
+                    
+                    ${isLocked ? `
+                        <div class="lock-actions" style="margin-top: 10px; text-align: right;">
+                            <button class="btn-sm btn-reedit" 
+                                onclick="handleReEdit('${verificationData.month}', '${emp.employee}', '${record.date}')"
+                                style="background: #6B7280; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                🔓 再編集する
+                            </button>
+                        </div>
+                    ` : ''}
                 </div>
             `;
         });
@@ -760,7 +782,7 @@ function handleExport() {
 // ---------------------------------------------------------
 
 // システム詳細（編集用ボタン付き）のレンダリング
-function renderSystemDetails(record, employeeName) {
+function renderSystemDetails(record, employeeName, isLocked = false) {
     if (!record.system_details || record.system_details.length === 0) return '';
 
     // システム報告に関連するレコードのみ詳細を表示
@@ -773,8 +795,8 @@ function renderSystemDetails(record, employeeName) {
                 📝 システム報告: <strong>${detail.category}</strong> ${detail.hours}h
             </span>
             <div class="report-actions">
-                <button class="btn-sm btn-edit" onclick="openEditReport('${detail.id}', '${record.date}', '${employeeName.replace(/'/g, "\\'")}', '${detail.category}', ${detail.hours})">編集</button>
-                <button class="btn-sm btn-delete" onclick="deleteReport('${detail.id}')">削除</button>
+                <button class="btn-sm btn-edit" ${isLocked ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} onclick="openEditReport('${detail.id}', '${record.date}', '${employeeName.replace(/'/g, "\\'")}', '${detail.category}', ${detail.hours})">編集</button>
+                <button class="btn-sm btn-delete" ${isLocked ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''} onclick="deleteReport('${detail.id}')">削除</button>
             </div>
         </div>
             `).join('');
@@ -912,10 +934,65 @@ async function handleCheckChange(checkbox) {
     }
 }
 
+/**
+ * 再編集ボタンハンドラー
+ * 事務チェックを外してロックを解除する
+ */
+async function handleReEdit(month, employee, date) {
+    if (!confirm('ロックを解除して再編集可能にしますか？\n（事務確認チェックが外れます）')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/update-verification-check`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                month,
+                employee,
+                date,
+                checkType: 'admin', // 事務チェックを外す
+                checked: false
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('ロック解除に失敗しました');
+        }
+
+        // 成功したら完了メッセージなどは出さずに、
+        // さらに本人チェックも外すか？ → 仕様では「再編集」なので、
+        // 事務チェックが外れれば、ロック判定 isLocked = self && admin が false になるのでOK。
+        // 本人チェックは残しておいてもいいかもしれないが、
+        // 「再編集」ということは内容が変わる可能性があるので、本人チェックも外すべきかもしれない。
+        // ユーザーの要望は「再編集ボタンを押さない限り編集できなくなる」なので、
+        // ロック解除 = 編集可能状態に戻すこと。
+        // ここではとりあえず事務チェックを外すだけにする（これでロック条件が崩れるので編集可能になる）
+
+        // 再検証（表示更新のため）
+        // force_refresh=trueにしないと、キャッシュされた verification_result を見に行ってしまい、
+        // その中身はまだ admin_checked=true のままかもしれない。
+        // update-verification-check APIは verification_result も更新しているはずだが、
+        // verify-cbo API は verification_checks (Redis Hash) を見に行くように修正したので、
+        // force_refresh=true で再検証させれば、最新の checks を読み込んでくれるはず。
+        // ただし verify-cbo 側で cache を返すロジックがあるので、
+        // update-verification-check 側で cache update しているなら force_refresh=false でもいいが
+        // 念のため force_refresh=true (再検証) を呼ぶのが安全。
+        // ユーザー体験的には、部分更新したいところだが、今回は reload 的な動きで許容。
+
+        handleVerify(true);
+
+    } catch (error) {
+        console.error('Error unlocking:', error);
+        alert(`エラー: ${error.message}`);
+    }
+}
+
 // グローバル公開
 window.deleteReport = deleteReport;
 window.openEditReport = openEditReport;
 window.handleCheckChange = handleCheckChange;
+window.handleReEdit = handleReEdit;
 
 // 初期化実行
 init();

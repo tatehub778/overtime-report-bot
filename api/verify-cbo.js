@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         }
 
         // 突合を実行
-        const verification = performVerification(cboData.records, systemReports, month, employeesRef);
+        const verification = await performVerification(cboData.records, systemReports, month, employeesRef);
 
         // デバッグ情報を追加
         verification.debug = {
@@ -156,7 +156,7 @@ async function getEmployeesMap() {
 /**
  * 突合を実行
  */
-function performVerification(cboRecords, systemReports, month, employeesRef) {
+async function performVerification(cboRecords, systemReports, month, employeesRef) {
     // CBOレコードを従業員名+日付でマップ化
     const cboMap = new Map();
     for (const record of cboRecords) {
@@ -341,6 +341,37 @@ function performVerification(cboRecords, systemReports, month, employeesRef) {
                 // 日付順に再ソート
                 target.records.sort((a, b) => a.date.localeCompare(b.date));
             }
+        });
+    }
+
+    // --- 永続化されたチェック状態を適用 ---
+    // Redisから保存されたチェック状態を取得
+    const checksKey = `verification_checks:${month}`;
+    const savedChecks = await kv.hgetall(checksKey) || {};
+
+    if (Object.keys(savedChecks).length > 0) {
+        console.log(`Applying ${Object.keys(savedChecks).length} saved checks from persistence`);
+
+        // by_employee の各レコードに適用
+        byEmployee.forEach(emp => {
+            emp.records.forEach(record => {
+                const checkField = `${emp.employee}|${record.date}`;
+                const saved = savedChecks[checkField];
+
+                if (saved) {
+                    if (saved.self !== undefined) {
+                        record.self_checked = saved.self;
+                        record.self_checked_at = saved.self_at;
+                    }
+                    if (saved.admin !== undefined) {
+                        record.admin_checked = saved.admin;
+                        record.admin_checked_at = saved.admin_at;
+                    }
+                }
+            });
+            // チェック状態が変わったため、再計算が必要ならここでするが、issuesカウント系はDBから取るわけじゃないので
+            // ここで更新しても良いが、issuesはmatch/mismatchの判定なのでチェック状態は影響しないはず
+            // ただし、UI上の表示のために更新しておく
         });
     }
 
