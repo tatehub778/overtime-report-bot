@@ -27,14 +27,18 @@ export default async function handler(req, res) {
             });
         }
 
+        // 従業員マスタを取得（表示順とフィルタ用）
+        const employeesRef = await getEmployeesMap();
+
         // 強制再検証でない場合、キャッシュをチェック
         if (!force_refresh) {
             const cachedResult = await kv.get(`verification_result:${month}`);
             if (cachedResult) {
                 console.log('Returning cached verification result for', month);
+                const filtered = filterVerificationData(cachedResult, filterDepartment, employeesRef);
                 return res.status(200).json({
                     success: true,
-                    verification: cachedResult,
+                    verification: filtered,
                     from_cache: true
                 });
             }
@@ -53,8 +57,7 @@ export default async function handler(req, res) {
         // システムの残業報告を取得
         const systemReports = await getSystemReports(month);
 
-        // 従業員マスタを取得（表示順のため）
-        const employeesRef = await getEmployeesMap();
+        // 従業員マスタは上で取得済み
 
         console.log('=== DEBUG: System Reports ===');
         console.log('Total system reports:', systemReports.length);
@@ -63,7 +66,7 @@ export default async function handler(req, res) {
         }
 
         // 突合を実行
-        const verification = await performVerification(cboData.records, systemReports, month, employeesRef, filterDepartment);
+        const verification = await performVerification(cboData.records, systemReports, month, employeesRef);
 
         // デバッグ情報を追加
         verification.debug = {
@@ -76,9 +79,12 @@ export default async function handler(req, res) {
         await kv.set(`verification_result:${month}`, verification);
         console.log('Verification result cached for', month);
 
+        // フィルタリング
+        const filteredResult = filterVerificationData(verification, filterDepartment, employeesRef);
+
         return res.status(200).json({
             success: true,
-            verification,
+            verification: filteredResult,
             from_cache: false
         });
 
@@ -156,7 +162,7 @@ async function getEmployeesMap() {
 /**
  * 突合を実行
  */
-async function performVerification(cboRecords, systemReports, month, employeesRef, filterDepartment) {
+async function performVerification(cboRecords, systemReports, month, employeesRef) {
     // CBOレコードを従業員名+日付でマップ化
     const cboMap = new Map();
     for (const record of cboRecords) {
@@ -311,7 +317,7 @@ async function performVerification(cboRecords, systemReports, month, employeesRe
     const missingDaysInfo = detectMissingDays(month, cboRecords, employeesRef);
 
     // 従業員ごとにグループ化
-    const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef, filterDepartment);
+    const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef);
 
     // 「打刻自体なし」のレコードを各従業員のリストに挿入
     if (missingDaysInfo && missingDaysInfo.byEmployee) {
@@ -396,7 +402,7 @@ async function performVerification(cboRecords, systemReports, month, employeesRe
 /**
  * 従業員ごとにデータをグループ化
  */
-function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef, filterDepartment) {
+function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef) {
     const employeeMap = new Map();
     const encounteredEmployees = new Set();
 
@@ -449,12 +455,8 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
         return a.localeCompare(b, 'ja');
     });
 
-    // フィルタリングを適用したリストを作成
-    const filteredEmployees = sortedEmployees.filter(name => {
-        if (!filterDepartment) return true;
-        const meta = employeesRef && employeesRef.map.has(name) ? employeesRef.map.get(name) : { department: 'unknown' };
-        return meta.department === filterDepartment;
-    });
+    // フィルタリング（ここでは行わず、全データを返す）
+    const filteredEmployees = sortedEmployees;
 
     // フィルタ後のリストに基づいてMapを初期化
     filteredEmployees.forEach(name => {
@@ -690,3 +692,49 @@ function detectMissingDays(month, cboRecords, employeesRef) {
 }
 
 
+
+/**
+ * 検証結果データをフィルタリングする
+ */
+function filterVerificationData(data, filterDepartment, employeesRef) {
+    if (!filterDepartment) return data;
+
+    // ディープコピーを作成（元のキャッシュを汚さないため）
+    const filtered = JSON.parse(JSON.stringify(data));
+
+    // 1. by_employee のフィルタリング
+    if (filtered.by_employee) {
+        filtered.by_employee = filtered.by_employee.filter(emp => {
+            const meta = employeesRef && employeesRef.map.has(emp.employee)
+                ? employeesRef.map.get(emp.employee)
+                : { department: 'unknown' };
+            return meta.department === filterDepartment;
+        });
+    }
+
+    // 2. 詳細リスト (details.*) のフィルタリング
+    ['missing', 'excess', 'discrepancies', 'matches'].forEach(type => {
+        if (filtered.details && filtered.details[type]) {
+            filtered.details[type] = filtered.details[type].filter(item => {
+                const meta = employeesRef && employeesRef.map.has(item.employee)
+                    ? employeesRef.map.get(item.employee)
+                    : { department: 'unknown' };
+                return meta.department === filterDepartment;
+            });
+        }
+    });
+
+    // 3. サマリーの再計算（オプションだが、表示される数字とリストが合っていたほうが良い）
+    filtered.summary = {
+        total_cbo_records: 0, // これは計算困難なのでそのままにするか、-1にするか。一旦そのまま
+        total_system_reports: 0, // 同上
+        matches: filtered.details.matches.length,
+        missing_reports: filtered.details.missing.length,
+        excess_reports: filtered.details.excess.length,
+        time_discrepancies: filtered.details.discrepancies.length
+    };
+    // total系は元のままだと誤解招くが、フィルタリング済みであることをUIで示すなどの対応で
+    // ここでは個別の整合性を優先する
+
+    return filtered;
+}
