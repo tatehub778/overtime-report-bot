@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { month, force_refresh } = req.body;
+        const { month, force_refresh, department: filterDepartment } = req.body;
 
         if (!month) {
             return res.status(400).json({
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         }
 
         // 突合を実行
-        const verification = await performVerification(cboData.records, systemReports, month, employeesRef);
+        const verification = await performVerification(cboData.records, systemReports, month, employeesRef, filterDepartment);
 
         // デバッグ情報を追加
         verification.debug = {
@@ -156,7 +156,7 @@ async function getEmployeesMap() {
 /**
  * 突合を実行
  */
-async function performVerification(cboRecords, systemReports, month, employeesRef) {
+async function performVerification(cboRecords, systemReports, month, employeesRef, filterDepartment) {
     // CBOレコードを従業員名+日付でマップ化
     const cboMap = new Map();
     for (const record of cboRecords) {
@@ -311,7 +311,7 @@ async function performVerification(cboRecords, systemReports, month, employeesRe
     const missingDaysInfo = detectMissingDays(month, cboRecords, employeesRef);
 
     // 従業員ごとにグループ化
-    const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef);
+    const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef, filterDepartment);
 
     // 「打刻自体なし」のレコードを各従業員のリストに挿入
     if (missingDaysInfo && missingDaysInfo.byEmployee) {
@@ -396,7 +396,7 @@ async function performVerification(cboRecords, systemReports, month, employeesRe
 /**
  * 従業員ごとにデータをグループ化
  */
-function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef) {
+function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef, filterDepartment) {
     const employeeMap = new Map();
     const encounteredEmployees = new Set();
 
@@ -433,6 +433,9 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
         const deptA = deptOrder[metaA.department] || 3;
         const deptB = deptOrder[metaB.department] || 3;
 
+        // フィルタがある場合、不一致ならスキップするための情報を付与したいが、
+        // ここではソートのみ。実際のフィルタリングは下のループで行う。
+
         if (deptA !== deptB) {
             return deptA - deptB;
         }
@@ -445,13 +448,22 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
         // 3. 最後は名前順
         return a.localeCompare(b, 'ja');
     });
-    // ソート順に基づいてMapを初期化
-    sortedEmployees.forEach(name => {
+
+    // フィルタリングを適用したリストを作成
+    const filteredEmployees = sortedEmployees.filter(name => {
+        if (!filterDepartment) return true;
+        const meta = employeesRef && employeesRef.map.has(name) ? employeesRef.map.get(name) : { department: 'unknown' };
+        return meta.department === filterDepartment;
+    });
+
+    // フィルタ後のリストに基づいてMapを初期化
+    filteredEmployees.forEach(name => {
         employeeMap.set(name, []);
     });
 
     // 各カテゴリのデータを従業員ごとに振り分け
     [...missing, ...excess, ...discrepancies, ...matches].forEach(item => {
+        if (!employeeMap.has(item.employee)) return; // フィルタで除外されている場合はスキップ
         let status = 'match';
         let icon = '✅';
         if (missing.includes(item)) {
@@ -484,7 +496,7 @@ function groupByEmployee(missing, excess, discrepancies, matches, cboRecords, em
 
     // 従業員ごとにソート（日付順）
     const result = [];
-    sortedEmployees.forEach(employee => {
+    filteredEmployees.forEach(employee => {
         if (employeeMap.has(employee)) {
             const records = employeeMap.get(employee).sort((a, b) => a.date.localeCompare(b.date));
             result.push({

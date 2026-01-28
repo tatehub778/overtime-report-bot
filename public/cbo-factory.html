@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBO 検証（工場） - 残業報告システム</title>
+    <link rel="stylesheet" href="cbo-verify.css">
+    <style>
+        /* 工場用ページ専用のスタイル */
+        .main-nav {
+            display: none !important;
+            /* ナビゲーションを完全に隠す */
+        }
+
+        .admin-only {
+            display: none !important;
+        }
+
+        header {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #6366f1;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 CBO 検証（工場メンバー用）</h1>
+            <p class="subtitle">自分の勤務記録とシステムの残業報告をチェックしてください</p>
+        </header>
+
+        <!-- 案内メッセージボックス -->
+        <section class="info-board">
+            <div class="info-board-header">
+                <span class="info-icon">💡</span>
+                <h2>活用ガイド</h2>
+            </div>
+            <div class="info-board-body">
+                <p class="highlight-text">いつでも自分でずれや打刻忘れをチェックいただけるようになりました。</p>
+
+                <div class="check-points">
+                    <div class="point">
+                        <span class="point-icon">❓</span>
+                        <span class="point-text">「いつの打刻を忘れているか」</span>
+                    </div>
+                    <div class="point">
+                        <span class="point-icon">⚖️</span>
+                        <span class="point-text">「CBOとLINE報告のずれがあるか」</span>
+                    </div>
+                </div>
+
+                <div class="caution-box">
+                    <p>漏れがあるまま日時が過ぎると、思い出せなくなったりします。<br>
+                        ぜひ、まめにチェックして、<strong>正確な状態を保つようにしてください。</strong></p>
+                </div>
+
+                <div class="next-step-box">
+                    <p>チェックして問題なければ、<strong>「本人」のチェックボックスにチェック</strong>をしてください。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- コントロールセクション（月選択） -->
+        <section id="control-section" class="section">
+            <div class="month-selector">
+                <label for="target-month">対象月:</label>
+                <input type="month" id="target-month" required>
+            </div>
+        </section>
+
+        <!-- 検証結果 -->
+        <section id="result-section" class="section" style="display: none;">
+            <div class="summary-cards">
+                <div class="summary-card card-success">
+                    <div class="card-icon">✅</div>
+                    <div class="card-content">
+                        <h3>一致</h3>
+                        <p class="card-value" id="matches-count">0</p>
+                    </div>
+                </div>
+
+                <div class="summary-card card-warning">
+                    <div class="card-icon">⚠️</div>
+                    <div class="card-content">
+                        <h3>未報告</h3>
+                        <p class="card-value" id="missing-count">0</p>
+                    </div>
+                </div>
+
+                <div class="summary-card card-danger">
+                    <div class="card-icon">❌</div>
+                    <div class="card-content">
+                        <h3>過剰報告</h3>
+                        <p class="card-value" id="excess-count">0</p>
+                    </div>
+                </div>
+
+                <div class="summary-card card-info">
+                    <div class="card-icon">🔄</div>
+                    <div class="card-content">
+                        <h3>時間ずれ</h3>
+                        <p class="card-value" id="discrepancy-count">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="factory-result-container">
+                <!-- メンバー別の結果がここに入ります -->
+            </div>
+        </section>
+
+        <footer class="footer">
+            <p>© 2025 tatesin夜勤残業報告</p>
+        </footer>
+    </div>
+
+    <!-- Edit Report Modal -->
+    <div id="edit-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" id="close-modal">&times;</span>
+            <h2>報告内容の修正</h2>
+            <form id="edit-form">
+                <input type="hidden" id="edit-report-id">
+                <div class="form-group">
+                    <label>日付:</label>
+                    <input type="text" id="edit-date" readonly disabled>
+                </div>
+                <div class="form-group">
+                    <label>氏名:</label>
+                    <input type="text" id="edit-employee" readonly disabled>
+                </div>
+                <div class="form-group">
+                    <label>カテゴリ:</label>
+                    <select id="edit-category">
+                        <option value="早出">早出</option>
+                        <option value="夜勤">夜勤</option>
+                        <option value="休日出勤">休日出勤</option>
+                        <option value="事務残業">事務残業</option>
+                        <option value="工場残業">工場残業</option>
+                        <option value="現場残業">現場残業</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>時間:</label>
+                    <input type="number" id="edit-hours" step="0.25" min="0">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" id="btn-cancel">キャンセル</button>
+                    <button type="submit" class="btn-save">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 共有JSの一部機能のみを利用 -->
+    <script src="cbo-factory.js"></script>
+</body>
+
+</html>
