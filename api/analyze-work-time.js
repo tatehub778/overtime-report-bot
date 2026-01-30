@@ -422,6 +422,22 @@ function parseCboReportCsv(csvContent, members, results) {
             //     }
             // }
 
+            // === 追加: 簡易休憩補正 (12:00-13:00) ===
+            // 12:00～13:00 の時間帯を跨いでいる（start <= 12:00 && end >= 13:00）場合、60分引く
+            if (startMin <= 12 * 60 && endMin >= 13 * 60) {
+                const deduction = 60;
+                // incrementRegular（定時内時間）から引く
+                // 実際に引ける量を計算（定時時間がマイナスにならないように）
+                const actualDeduction = Math.min(incrementRegular, deduction);
+                incrementRegular -= actualDeduction;
+
+                // 現場時間の補正
+                // incrementRegular が減ったので、後続の FIELD_KEYWORDS_REGULAR 判定ロジックにより、
+                // 現場であった場合は現場時間も自動的に減る（incrementRegularを加算しているため）。
+                // 事務であった場合はincrementRegular（定時合計）のみ減り、現場時間は増えないので、結果的に事務時間が減る。
+                // これで「現場なら現場から、事務なら事務から引く」が実現される。
+            }
+
             // Late区間（17:30以降）からの控除（要望にあれば追加、現状なし）
 
             rawRegularMinutes += incrementRegular;
