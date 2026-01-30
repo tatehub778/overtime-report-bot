@@ -21,15 +21,7 @@ function init() {
     // イベントリスナー
     targetMonth.addEventListener('change', checkExistingData);
 
-    // Modal Listeners
-    document.getElementById('edit-form').addEventListener('submit', handleEditSubmit);
-    document.getElementById('close-modal').addEventListener('click', closeEditModal);
-    document.getElementById('btn-cancel').addEventListener('click', closeEditModal);
-    window.addEventListener('click', (e) => {
-        if (e.target === document.getElementById('edit-modal')) {
-            closeEditModal();
-        }
-    });
+    // 編集機能は工場専用ページでは無効化
 
     // 初期ロード時にデータをチェック
     checkExistingData();
@@ -190,21 +182,14 @@ function renderByEmployee(byEmployee) {
     resultContainer.innerHTML = html;
 }
 
-// システム詳細（編集用ボタン付き）
+// システム詳細（閲覧専用）
 function renderSystemDetails(record, employeeName, isLocked = false) {
     if (!record.system_details || record.system_details.length === 0) return '';
 
     let html = '<div class="system-details-list" style="margin-top: 5px; padding-left: 28px;">';
     html += record.system_details.map(detail => `
-            <div class="system-detail-item" style="font-size: 0.85em; color: #666; margin-bottom: 3px; display: flex; justify-content: space-between;">
+            <div class="system-detail-item" style="font-size: 0.85em; color: #666; margin-bottom: 3px;">
                 <span>📝 報告: <strong>${detail.category}</strong> ${detail.hours}h</span>
-                <div class="report-actions">
-                    <button class="btn-sm" 
-                        onclick="openEditReport('${detail.id}', '${record.date}', '${employeeName.replace(/'/g, "\\'")}', '${detail.category}', ${detail.hours})"
-                        style="background: none; border: 1px solid #d1d5db; border-radius: 4px; padding: 2px 6px; cursor: ${isLocked ? 'default' : 'pointer'}; ${isLocked ? 'display: none;' : ''}">
-                        編集
-                    </button>
-                </div>
             </div>
         `).join('');
     html += '</div>';
@@ -236,47 +221,10 @@ async function handleCheckChange(checkbox) {
     }
 }
 
-// 編集モーダル操作
-function openEditReport(id, date, employee, category, hours) {
-    document.getElementById('edit-report-id').value = id;
-    document.getElementById('edit-date').value = date;
-    document.getElementById('edit-employee').value = employee;
-    document.getElementById('edit-category').value = category;
-    document.getElementById('edit-hours').value = hours;
-    document.getElementById('edit-modal').style.display = 'flex';
-}
-
-function closeEditModal() {
-    document.getElementById('edit-modal').style.display = 'none';
-}
-
-async function handleEditSubmit(e) {
-    e.preventDefault();
-    const id = document.getElementById('edit-report-id').value;
-    const hours = document.getElementById('edit-hours').value;
-    const category = document.getElementById('edit-category').value;
-
-    try {
-        const response = await fetch(`${API_BASE}/manage-report?id=${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hours, category })
-        });
-
-        if (!response.ok) throw new Error('更新に失敗しました');
-
-        alert('更新しました');
-        closeEditModal();
-        checkExistingData(); // データ再取得
-    } catch (error) {
-        console.error('Update error:', error);
-        alert(`エラー: ${error.message}`);
-    }
-}
+// 編集機能は工場専用ページでは無効化
 
 // グローバル公開
 window.handleCheckChange = handleCheckChange;
-window.openEditReport = openEditReport;
 
 // 初期化実行
 init();
