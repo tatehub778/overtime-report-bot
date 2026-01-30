@@ -400,26 +400,27 @@ function parseCboReportCsv(csvContent, members, results) {
             let incrementEarly = Math.max(0, Math.min(endMin, regularStart) - startMin);
             let incrementLate = Math.max(0, endMin - Math.max(startMin, regularEnd));
 
-            // 休憩控除（厳密なまたぎ判定）
-            const breaks = [
-                { start: 10 * 60, end: 10 * 60 + 15 },
-                { start: 12 * 60, end: 13 * 60 },
-                { start: 15 * 60, end: 15 * 60 + 15 }
-            ];
+            // 休憩控除を無効化（純粋な時間差で計算）
+            // 以前は10:00-10:15、12:00-13:00、15:00-15:15を控除していた
+            // const breaks = [
+            //     { start: 10 * 60, end: 10 * 60 + 15 },
+            //     { start: 12 * 60, end: 13 * 60 },
+            //     { start: 15 * 60, end: 15 * 60 + 15 }
+            // ];
 
-            // Regular区間からの控除
-            if (incrementRegular > 0) {
-                const s = regularOverlapStart;
-                const e = regularOverlapEnd;
-                // またぎ判定：シフト全体(startMin, endMin)で休憩を含んでいるか
-                for (const brk of breaks) {
-                    if (startMin <= brk.start && endMin >= brk.end) {
-                        // 休憩時間帯がRegular期間と重なっていれば引く
-                        const overlap = Math.max(0, Math.min(e, brk.end) - Math.max(s, brk.start));
-                        incrementRegular -= overlap;
-                    }
-                }
-            }
+            // // Regular区間からの控除
+            // if (incrementRegular > 0) {
+            //     const s = regularOverlapStart;
+            //     const e = regularOverlapEnd;
+            //     // またぎ判定：シフト全体(startMin, endMin)で休憩を含んでいるか
+            //     for (const brk of breaks) {
+            //         if (startMin <= brk.start && endMin >= brk.end) {
+            //             // 休憩時間帯がRegular期間と重なっていれば引く
+            //             const overlap = Math.max(0, Math.min(e, brk.end) - Math.max(s, brk.start));
+            //             incrementRegular -= overlap;
+            //         }
+            //     }
+            // }
 
             // Late区間（17:30以降）からの控除（要望にあれば追加、現状なし）
 
