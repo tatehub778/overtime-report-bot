@@ -599,6 +599,10 @@ function displayByEmployee(byEmployee, missingDaysInfo) {
         resultSection.insertBefore(employeeSection, resultSection.querySelector('.debug-info') || resultSection.firstChild);
     }
     let html = '';
+
+    // 休日一覧セクションを追加
+    html += displayMissingDaysSection(missingDaysInfo);
+
     html += '<h2 style="margin: 20px 0;">メンバー別検証結果</h2>';
 
     byEmployee.forEach(emp => {
