@@ -314,7 +314,7 @@ async function performVerification(cboRecords, systemReports, month, employeesRe
     };
 
     // 未入力日を検出
-    const missingDaysInfo = detectMissingDays(month, cboRecords, employeesRef);
+    const missingDaysInfo = await detectMissingDays(month, cboRecords, employeesRef);
 
     // 従業員ごとにグループ化
     const byEmployee = groupByEmployee(missing, excess, discrepancies, matches, cboRecords, employeesRef);
@@ -558,7 +558,7 @@ function formatDateFromReport(dateStr) {
  * @param {Object} employeesRef - 従業員マスタ
  * @returns {Object} 未入力日の情報
  */
-function detectMissingDays(month, cboRecords, employeesRef) {
+async function detectMissingDays(month, cboRecords, employeesRef) {
     // 1. 対象月の全日付を生成
     const [year, monthNum] = month.split('-').map(Number);
     const daysInMonth = new Date(year, monthNum, 0).getDate();
@@ -594,10 +594,15 @@ function detectMissingDays(month, cboRecords, employeesRef) {
         }
     }
 
-    // 4. 未入力日を検出（休日を除外）
+    // 4. 手動設定を取得
+    const manualSettingsKey = `manual_workdays:${month}`;
+    const manualSettings = await kv.get(manualSettingsKey) || {};
+    console.log(`Manual settings for ${month}:`, manualSettings);
+
+    // 5. 未入力日を検出（休日を除外）
     const missingDays = [];
     const holidays = [];
-    const missingThreshold = 5; // 5人以上未入力なら休日
+    const missingThreshold = 8; // 8人未満の打刻なら休日
 
     // JSTでの「今日」を取得
     const nowJST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
@@ -621,15 +626,38 @@ function detectMissingDays(month, cboRecords, employeesRef) {
         const date = new Date(dateStr);
         const dayOfWeek = date.getDay(); // 0=日, 6=土
 
-        // 休日判定: 実際に打刻した人が5人未満なら休日とみなす
-        // 注意: 有給者の行があっても、実打刻(has_punch)がなければここでのカウントには含まれない
-        if (recordCount < missingThreshold) {
+        // 手動設定をチェック
+        const manualSetting = manualSettings[dateStr];
+        let isHoliday = false;
+        let reason = '';
+
+        if (manualSetting) {
+            // 手動設定がある場合はそれを優先
+            if (manualSetting === 'holiday') {
+                isHoliday = true;
+                reason = '手動設定: 休日';
+            } else if (manualSetting === 'workday') {
+                isHoliday = false;
+                reason = '手動設定: 出勤日';
+            }
+        } else {
+            // 手動設定がない場合は閾値判定
+            // 休日判定: 実際に打刻した人が8人未満なら休日とみなす
+            // 注意: 有給者の行があっても、実打刻(has_punch)がなければここでのカウントには含まれない
+            if (recordCount < missingThreshold) {
+                isHoliday = true;
+                reason = `${recordCount}人のみ実打刻のため休日判定`;
+            }
+        }
+
+        if (isHoliday) {
             holidays.push({
                 date: dateStr,
                 recordCount,
                 missingCount,
                 dayOfWeek,
-                reason: `${recordCount}人のみ実打刻のため休日判定`
+                manualSetting: manualSetting || null,
+                reason
             });
         } else {
             // 出勤日: CBOにレコード自体がない、またはあっても打刻（D-F列）も理由（N, O列）もない人を特定

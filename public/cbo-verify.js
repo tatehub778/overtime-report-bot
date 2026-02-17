@@ -449,16 +449,88 @@ function displayMissingDaysSection(missingDaysInfo) {
 
     const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 
+    // 休日一覧も一緒に表示
+    let holidaysHTML = '';
+    if (missingDaysInfo.holidayDetails && missingDaysInfo.holidayDetails.length > 0) {
+        holidaysHTML = `
+            <div class="detail-section" style="margin-bottom: 30px;">
+                <h3 class="detail-title">🏖️ 検出された休日一覧</h3>
+                <div class="detail-content">
+                    <div style="background: #DBEAFE; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <p style="margin: 0; color: #1E40AF; font-size: 14px;">
+                            <strong>✨ 自動判定:</strong> ${missingDaysInfo.threshold}人未満の実打刻の日を休日として判定
+                        </p>
+                        <p style="margin: 5px 0 0 0; color: #1E40AF; font-size: 13px;">
+                            検出された休日: ${missingDaysInfo.holidays}日
+                        </p>
+                    </div>
+        `;
+
+        missingDaysInfo.holidayDetails.forEach(item => {
+            const dayOfWeek = dayNames[item.dayOfWeek];
+            const isManual = item.manualSetting === 'holiday';
+            const bgColor = isManual ? '#FEF3C7' : '#EFF6FF';
+            const borderColor = isManual ? '#F59E0B' : '#3B82F6';
+            const textColor = isManual ? '#92400E' : '#1E40AF';
+
+            holidaysHTML += `
+                <div style="
+                    padding: 12px;
+                    border-left: 4px solid ${borderColor};
+                    background: ${bgColor};
+                    margin-bottom: 8px;
+                    border-radius: 4px;
+                ">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-weight: 600; color: #1F2937;">${item.date.substring(5)} (${dayOfWeek})</span>
+                            ${isManual ? '<span style="color: #F59E0B; margin-left: 8px;">⚙️ 手動設定</span>' : ''}
+                            ${item.dayOfWeek === 0 || item.dayOfWeek === 6 ? '<span style="color: #6B7280; margin-left: 8px;">🗓️ 土日</span>' : ''}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 0.9em; color: #6B7280;">
+                                打刻: ${item.recordCount}人
+                            </span>
+                            ${isManual ? `
+                                <button 
+                                    onclick="removeManualSetting('${item.date}')"
+                                    style="background: #6B7280; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;"
+                                    title="手動設定を解除して自動判定に戻す"
+                                >
+                                    🔄 自動判定に戻す
+                                </button>
+                            ` : `
+                                <button 
+                                    onclick="setManualWorkday('${item.date}')"
+                                    style="background: #10B981; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;"
+                                    title="この日を出勤日として手動設定"
+                                >
+                                    ✏️ 出勤日として設定
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        holidaysHTML += `
+                </div>
+            </div>
+        `;
+    }
+
     let html = `
+        ${holidaysHTML}
         <div class="detail-section" style="margin-bottom: 30px;">
             <h3 class="detail-title">📅 未入力日（出勤日で記録漏れあり）</h3>
             <div class="detail-content">
                 <div style="background: #FEF3C7; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                     <p style="margin: 0; color: #92400E; font-size: 14px;">
-                        <strong>✨ 休日自動判定:</strong> ${missingDaysInfo.threshold}人未満の記録しかない日は休日として除外しています
+                        <strong>✨ 出勤日判定:</strong> ${missingDaysInfo.threshold}人以上の実打刻がある日を出勤日として判定
                     </p>
                     <p style="margin: 5px 0 0 0; color: #92400E; font-size: 13px;">
-                        検出された休日: ${missingDaysInfo.holidays}日 / 対象月の日数: ${missingDaysInfo.totalDays}日 / 出勤日: ${missingDaysInfo.workDays}日
+                        出勤日: ${missingDaysInfo.workDays}日 / 対象月の日数: ${missingDaysInfo.totalDays}日
                     </p>
                 </div>
     `;
@@ -480,8 +552,17 @@ function displayMissingDaysSection(missingDaysInfo) {
                         <span style="font-weight: 600; color: #1F2937;">${item.date.substring(5)} (${dayOfWeek})</span>
                         ${isWeekend ? '<span style="color: #F59E0B; margin-left: 8px;">⚠️ 土日</span>' : ''}
                     </div>
-                    <div style="font-size: 0.9em; color: #6B7280;">
-                        記録: ${item.recordCount}人 / 未記録: ${item.missingCount}人
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 0.9em; color: #6B7280;">
+                            記録: ${item.recordCount}人 / 未記録: ${item.missingCount}人
+                        </span>
+                        <button 
+                            onclick="setManualHoliday('${item.date}')"
+                            style="background: #EF4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;"
+                            title="この日を休日として手動設定"
+                        >
+                            ✏️ 休日として設定
+                        </button>
                     </div>
                 </div>
             </div>
@@ -987,11 +1068,125 @@ async function handleReEdit(month, employee, date) {
     }
 }
 
+// ---------------------------------------------------------
+// Manual Workday Settings Functions
+// ---------------------------------------------------------
+
+/**
+ * 日付を出勤日として手動設定
+ */
+async function setManualWorkday(date) {
+    if (!confirm(`${date}を出勤日として手動設定しますか？\n\nこの設定により、この日は自動判定に関わらず出勤日として扱われます。`)) {
+        return;
+    }
+
+    try {
+        const month = targetMonth.value;
+        const response = await fetch(`${API_BASE}/manual-workdays?month=${month}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date: date,
+                type: 'workday'
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.details || error.error || '設定に失敗しました');
+        }
+
+        const result = await response.json();
+        alert(result.message || '出勤日として設定しました');
+
+        // 再検証して結果を更新
+        handleVerify(true);
+
+    } catch (error) {
+        console.error('Error setting manual workday:', error);
+        alert(`エラー: ${error.message}`);
+    }
+}
+
+/**
+ * 日付を休日として手動設定
+ */
+async function setManualHoliday(date) {
+    if (!confirm(`${date}を休日として手動設定しますか？\n\nこの設定により、この日は自動判定に関わらず休日として扱われます。`)) {
+        return;
+    }
+
+    try {
+        const month = targetMonth.value;
+        const response = await fetch(`${API_BASE}/manual-workdays?month=${month}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date: date,
+                type: 'holiday'
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.details || error.error || '設定に失敗しました');
+        }
+
+        const result = await response.json();
+        alert(result.message || '休日として設定しました');
+
+        // 再検証して結果を更新
+        handleVerify(true);
+
+    } catch (error) {
+        console.error('Error setting manual holiday:', error);
+        alert(`エラー: ${error.message}`);
+    }
+}
+
+/**
+ * 手動設定を削除（自動判定に戻す）
+ */
+async function removeManualSetting(date) {
+    if (!confirm(`${date}の手動設定を削除しますか？\n\n削除後は自動判定に戻ります。`)) {
+        return;
+    }
+
+    try {
+        const month = targetMonth.value;
+        const response = await fetch(`${API_BASE}/manual-workdays?month=${month}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date: date
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.details || error.error || '削除に失敗しました');
+        }
+
+        const result = await response.json();
+        alert(result.message || '手動設定を削除しました');
+
+        // 再検証して結果を更新
+        handleVerify(true);
+
+    } catch (error) {
+        console.error('Error removing manual setting:', error);
+        alert(`エラー: ${error.message}`);
+    }
+}
+
 // グローバル公開
 window.deleteReport = deleteReport;
 window.openEditReport = openEditReport;
 window.handleCheckChange = handleCheckChange;
 window.handleReEdit = handleReEdit;
+window.setManualWorkday = setManualWorkday;
+window.setManualHoliday = setManualHoliday;
+window.removeManualSetting = removeManualSetting;
 
 // 初期化実行
 init();
