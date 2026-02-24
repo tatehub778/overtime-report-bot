@@ -19,50 +19,207 @@
         .report-header {
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 15px;
+            margin-bottom: 24px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         #monthInput {
-            padding: 8px 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
             font-size: 16px;
+            font-family: 'Inter', sans-serif;
+            color: #334155;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #monthInput:focus {
+            border-color: #6366f1;
         }
 
         .summary-btn {
             background-color: #6366f1;
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
+            padding: 10px 20px;
+            border-radius: 8px;
             cursor: pointer;
-            font-weight: 500;
+            font-weight: 600;
             font-size: 15px;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
         }
 
         .summary-btn:hover {
             background-color: #4f46e5;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(99, 102, 241, 0.3);
         }
 
-        .report-pre {
-            background-color: var(--surface-color, #ffffff);
-            border: 1px solid var(--border-color, #e2e8f0);
+        /* 経理向けテーブルデザイン */
+        .report-info-title {
+            font-size: 1.25rem;
+            color: #1e293b;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e2e8f0;
+            font-weight: 600;
+        }
+
+        .dept-card {
+            background: white;
             border-radius: 12px;
-            padding: 20px;
-            font-family: 'Inter', sans-serif;
-            font-size: 15px;
-            line-height: 1.6;
-            white-space: pre-wrap;
-            color: var(--text-primary, #1e293b);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 0;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .dept-title {
+            background: #f8fafc;
+            padding: 16px 20px;
+            margin: 0;
+            font-size: 1.1rem;
+            color: #334155;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dept-title::before {
+            content: '🏢';
+            font-size: 1.2rem;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .acc-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .acc-table th {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            padding: 12px 20px;
+            font-size: 0.9rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .acc-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+            font-size: 0.95rem;
+            vertical-align: middle;
+        }
+
+        .acc-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .acc-table tbody tr:hover td {
+            background-color: #f8fafc;
+        }
+
+        /* rowspan時のホバー制御 */
+        .acc-table tbody tr:hover td.emp-name-cell {
+            background-color: transparent;
+        }
+
+        .emp-name-cell {
+            font-weight: 600;
+            color: #0f172a;
+            background-color: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            vertical-align: top !important;
+            padding-top: 16px !important;
+        }
+
+        .detail-badge {
+            display: inline-block;
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            letter-spacing: 0.02em;
+        }
+
+        .no-data {
+            padding: 24px;
+            text-align: center;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .report-footer {
+            margin-top: 16px;
+            text-align: right;
+            font-weight: 600;
+            color: #475569;
+            background: #f8fafc;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: inline-block;
+            float: right;
+            border: 1px solid #e2e8f0;
+        }
+
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
         }
 
         .loading-text {
-            color: var(--text-secondary, #64748b);
+            color: #64748b;
             text-align: center;
-            padding: 20px;
+            padding: 40px;
+            font-size: 1.1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error-message-box {
+            background: #fef2f2;
+            color: #b91c1c;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #fecaca;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
     </style>
 </head>
@@ -88,14 +245,15 @@
         </nav>
 
         <main class="main">
-            <div class="form-section" style="padding: 20px; border-radius: 12px;">
-                <div class="report-header">
-                    <input type="month" id="monthInput">
-                    <button class="summary-btn" onclick="fetchList()">表示</button>
-                </div>
+            <div class="report-header">
+                <input type="month" id="monthInput">
+                <button class="summary-btn" onclick="fetchList()">表示を更新</button>
+            </div>
 
-                <div id="content">
-                    <div class="loading-text">読み込み中...</div>
+            <div id="content" class="clearfix">
+                <div class="loading-text">
+                    <div class="spinner"></div>
+                    <div>データを読み込み中...</div>
                 </div>
             </div>
         </main>
@@ -117,7 +275,11 @@
 
         async function fetchList() {
             const contentDiv = document.getElementById('content');
-            contentDiv.innerHTML = '<div class="loading-text">読み込み中...</div>';
+            contentDiv.innerHTML = `
+                <div class="loading-text">
+                    <div class="spinner"></div>
+                    <div>データを読み込み中...</div>
+                </div>`;
 
             const month = document.getElementById('monthInput').value;
 
@@ -130,11 +292,113 @@
                 }
 
                 const text = await response.text();
-                contentDiv.innerHTML = `<pre class="report-pre">${text}</pre>`;
+
+                // テキストを解析して綺麗なUIを構築
+                const html = parseAndRenderReport(text);
+                contentDiv.innerHTML = html;
+
             } catch (error) {
                 console.error('Fetch error:', error);
-                contentDiv.innerHTML = '<div style="color: #ef4444; padding: 20px;">一覧の取得に失敗しました。</div>';
+                contentDiv.innerHTML = `
+                    <div class="error-message-box">
+                        <span>⚠️</span>
+                        <span>一覧の取得に失敗しました。通信環境を確認してください。</span>
+                    </div>`;
             }
+        }
+
+        function parseAndRenderReport(text) {
+            const lines = text.split('\n');
+            let currentDept = null;
+            let currentEmp = null;
+            const parsed = { header: '', footer: '', depts: [], emptyMessage: null };
+
+            // 解析フェーズ
+            lines.forEach(lineStr => {
+                const line = lineStr.trim();
+                if (!line && !lineStr.startsWith(' ')) return;
+
+                if (line.startsWith('📊')) {
+                    parsed.header = line;
+                } else if (line.startsWith('合計:')) {
+                    parsed.footer = line;
+                } else if (line === '■工場') {
+                    currentDept = { name: '工場チーム', employees: [] };
+                    parsed.depts.push(currentDept);
+                    currentEmp = null;
+                } else if (line === '■管理') {
+                    currentDept = { name: '管理チーム', employees: [] };
+                    parsed.depts.push(currentDept);
+                    currentEmp = null;
+                } else if (line === '━━━━━━━━━━━━━━━' || line === 'なし') {
+                    // ignore
+                } else if (line.startsWith('■')) {
+                    currentEmp = { name: line.substring(1).trim(), records: [] };
+                    if (currentDept) currentDept.employees.push(currentEmp);
+                } else if (currentEmp && line.match(/^\d{2}\/\d{2}/)) {
+                    // "02/05  残業2h"
+                    const dateStr = line.substring(0, 5);
+                    const details = line.substring(5).trim();
+                    currentEmp.records.push({ date: dateStr, details: details });
+                } else if (!line.startsWith('■') && currentDept === null && !line.startsWith('📊') && line.length > 0) {
+                    if (line.includes('報告がまだありません')) {
+                        parsed.emptyMessage = line;
+                    }
+                }
+            });
+
+            if (parsed.emptyMessage) {
+                return `
+                    <h2 class="report-info-title">${parsed.header}</h2>
+                    <div class="dept-card" style="padding: 40px; text-align: center; color: #64748b;">
+                        📦 ${parsed.emptyMessage}
+                    </div>`;
+            }
+
+            // HTML構築フェーズ
+            let html = `<h2 class="report-info-title">${parsed.header}</h2>`;
+
+            parsed.depts.forEach(dept => {
+                html += `<div class="dept-card">
+                    <h3 class="dept-title">${dept.name}</h3>`;
+
+                if (dept.employees.length === 0) {
+                    html += `<p class="no-data">このチームの報告はありません</p></div>`;
+                    return;
+                }
+
+                html += `<div class="table-responsive"><table class="acc-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%">氏名</th>
+                            <th style="width: 20%">日付</th>
+                            <th style="width: 55%">報告内容</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                dept.employees.forEach(emp => {
+                    if (emp.records.length === 0) return;
+
+                    emp.records.forEach((rec, idx) => {
+                        html += `<tr>`;
+                        if (idx === 0) {
+                            html += `<td rowspan="${emp.records.length}" class="emp-name-cell">${emp.name}</td>`;
+                        }
+                        html += `<td><span style="color: #64748b; font-variant-numeric: tabular-nums;">${rec.date}</span></td>
+                                 <td><span class="detail-badge">${rec.details}</span></td>
+                                 </tr>`;
+                    });
+                });
+
+                html += `</tbody></table></div></div>`;
+            });
+
+            if (parsed.footer) {
+                html += `<div class="report-footer">${parsed.footer}</div>`;
+            }
+
+            return html;
         }
     </script>
 </body>
