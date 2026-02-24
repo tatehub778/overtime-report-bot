@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>報告一覧 | LINE Bot秘書</title>
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/nav.css">
+    <style>
+        .report-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #monthInput {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .summary-btn {
+            background-color: #6366f1;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 15px;
+            transition: background-color 0.2s;
+        }
+
+        .summary-btn:hover {
+            background-color: #4f46e5;
+        }
+
+        .report-pre {
+            background-color: var(--surface-color, #ffffff);
+            border: 1px solid var(--border-color, #e2e8f0);
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: var(--text-primary, #1e293b);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .loading-text {
+            color: var(--text-secondary, #64748b);
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <span class="icon">📱</span>
+                    報告一覧
+                </h1>
+                <p class="subtitle">LINE Bot秘書システム</p>
+            </div>
+        </header>
+
+        <nav class="main-nav">
+            <a href="/" class="nav-btn">📝 残業報告</a>
+            <a href="/list.html" class="nav-btn active">📱 報告一覧</a>
+            <a href="/cbo-verify.html" class="nav-btn">📊 CBO検証</a>
+            <a href="/admin.html" class="nav-btn">👥 管理画面</a>
+            <a href="/office-overtime.html" class="nav-btn">📉 残業分析</a>
+        </nav>
+
+        <main class="main">
+            <div class="form-section" style="padding: 20px; border-radius: 12px;">
+                <div class="report-header">
+                    <input type="month" id="monthInput">
+                    <button class="summary-btn" onclick="fetchList()">表示</button>
+                </div>
+
+                <div id="content">
+                    <div class="loading-text">読み込み中...</div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2025 tatesin夜勤残業報告</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            document.getElementById('monthInput').value = `${yyyy}-${mm}`;
+
+            fetchList();
+        });
+
+        async function fetchList() {
+            const contentDiv = document.getElementById('content');
+            contentDiv.innerHTML = '<div class="loading-text">読み込み中...</div>';
+
+            const month = document.getElementById('monthInput').value;
+
+            try {
+                const url = month ? `/api/get-summary-text?month=${month}` : '/api/get-summary-text';
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const text = await response.text();
+                contentDiv.innerHTML = `<pre class="report-pre">${text}</pre>`;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                contentDiv.innerHTML = '<div style="color: #ef4444; padding: 20px;">一覧の取得に失敗しました。</div>';
+            }
+        }
+    </script>
+</body>
+
+</html>

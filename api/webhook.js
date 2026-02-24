@@ -222,7 +222,7 @@ async function formatSummaryMessage(month, employeeSummary, totalReports) {
     const factoryWithReports = factoryTeam.filter(emp => employeeSummary[emp]);
     if (factoryWithReports.length > 0) {
         factoryWithReports.forEach(employee => {
-            message += `${employee}\n`;
+            message += `\n■${employee}\n`;
 
             // 日付ごとにグループ化
             const reportsByDate = {};
@@ -256,7 +256,7 @@ async function formatSummaryMessage(month, employeeSummary, totalReports) {
     const managementWithReports = managementTeam.filter(emp => employeeSummary[emp]);
     if (managementWithReports.length > 0) {
         managementWithReports.forEach(employee => {
-            message += `${employee}\n`;
+            message += `\n■${employee}\n`;
 
             // 日付ごとにグループ化
             const reportsByDate = {};
