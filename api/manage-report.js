@@ -16,6 +16,11 @@ module.exports = async (req, res) => {
         return res.status(200).end();
     }
 
+    // 設定管理の統合
+    if (req.query.type === 'settings') {
+        return handleSettings(req, res);
+    }
+
     if (req.method === 'DELETE') {
         return handleDelete(req, res);
     } else if (req.method === 'PUT') {
@@ -102,5 +107,39 @@ async function handleUpdate(req, res) {
     } catch (error) {
         console.error('Update error:', error);
         return res.status(500).json({ error: 'Failed to update report' });
+    }
+}
+
+async function handleSettings(req, res) {
+    try {
+        if (req.method === 'GET') {
+            const lineEnabled = await kv.get('config:line_notification');
+            return res.status(200).json({
+                line_notification_enabled: lineEnabled !== false,
+                line_configured: !!process.env.LINE_GROUP_ID,
+                quota_status: await kv.get('status:line_quota_exceeded'),
+                env_check: {
+                    has_group_id: !!process.env.LINE_GROUP_ID,
+                    has_access_token: !!process.env.LINE_CHANNEL_ACCESS_TOKEN,
+                    has_channel_secret: !!process.env.LINE_CHANNEL_SECRET,
+                    has_gas_url: !!process.env.GAS_WEBHOOK_URL
+                }
+            });
+        } else if (req.method === 'POST') {
+            const { line_notification_enabled } = req.body;
+            if (typeof line_notification_enabled !== 'boolean') {
+                return res.status(400).json({ error: 'Invalid value' });
+            }
+            await kv.set('config:line_notification', line_notification_enabled);
+            return res.status(200).json({ success: true, line_notification_enabled });
+        } else if (req.method === 'DELETE') {
+            await kv.del('config:line_notification');
+            return res.status(200).json({ success: true, message: 'Settings reset' });
+        } else {
+            return res.status(405).json({ error: 'Method not allowed' });
+        }
+    } catch (error) {
+        console.error('Settings error:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
     }
 }

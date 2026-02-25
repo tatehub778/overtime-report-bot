@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 設定読み込み
 async function loadSettings() {
     try {
-        const response = await fetch(`/api/settings?t=${Date.now()}`);
+        const response = await fetch(`/api/manage-report?type=settings&t=${Date.now()}`);
         if (response.ok) {
             const data = await response.json();
 
@@ -120,7 +120,7 @@ async function testNotification() {
 async function handleSettingChange(e) {
     const enabled = e.target.checked;
     try {
-        const response = await fetch('/api/settings', {
+        const response = await fetch('/api/manage-report?type=settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ line_notification_enabled: enabled })
@@ -341,7 +341,7 @@ async function resetLineSettings() {
     if (!confirm('LINE通知設定をデフォルト（有効）にリセットしますか？')) return;
 
     try {
-        const response = await fetch('/api/settings', {
+        const response = await fetch('/api/manage-report?type=settings', {
             method: 'DELETE'
         });
 

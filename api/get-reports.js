@@ -21,6 +21,16 @@ module.exports = async (req, res) => {
     }
 
     try {
+        // 送信ログの取得要求
+        if (req.query.type === 'logs') {
+            const logKey = 'logs:submissions';
+            const logs = await kv.zrevrange(logKey, 0, 99);
+            return res.status(200).json({
+                success: true,
+                logs: logs || []
+            });
+        }
+
         // クエリパラメータから月を取得（デフォルトは今月）
         const month = req.query.month || new Date().toISOString().substring(0, 7);
 
