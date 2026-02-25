@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>送信ログ | LINE Bot秘書</title>
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/nav.css">
+    <style>
+        .log-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .log-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .log-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-family: 'Inter', 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            color: #334155;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .log-item:last-child {
+            border-bottom: none;
+        }
+
+        .log-date {
+            color: #64748b;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .log-content {
+            font-weight: 400;
+            word-break: break-all;
+        }
+
+        .loading-text {
+            color: #64748b;
+            text-align: center;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e2e8f0;
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .empty-logs {
+            text-align: center;
+            color: #94a3b8;
+            padding: 32px;
+            font-style: italic;
+        }
+
+        .refresh-btn {
+            background-color: #6366f1;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .refresh-btn:hover {
+            background-color: #4f46e5;
+        }
+
+        .log-info-text {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-bottom: 16px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border-left: 4px solid #cbd5e1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <span class="icon">📜</span>
+                    送信ログ
+                </h1>
+                <p class="subtitle">LINE Bot秘書システム</p>
+            </div>
+        </header>
+
+        <nav class="main-nav">
+            <a href="/" class="nav-btn">📝 残業報告</a>
+            <a href="/list.html" class="nav-btn">📱 報告一覧</a>
+            <a href="/cbo-verify.html" class="nav-btn">📊 CBO検証</a>
+            <a href="/admin.html" class="nav-btn">👥 管理画面</a>
+            <a href="/office-overtime.html" class="nav-btn">📉 残業分析</a>
+            <a href="/logs.html" class="nav-btn active">📜 送信ログ</a>
+        </nav>
+
+        <main class="main">
+            <div class="log-info-text">
+                ※報告が送信された際の日時と対象者が記録されます。ログは3ヶ月間保持されます。
+            </div>
+
+            <button class="refresh-btn" onclick="fetchLogs()">
+                <span>🔄</span> 更新
+            </button>
+
+            <div class="log-container">
+                <div id="logContent">
+                    <div class="loading-text">
+                        <div class="spinner"></div>
+                        <div>ログを読み込み中...</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>© 2025 tatesin夜勤残業報告</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', fetchLogs);
+
+        async function fetchLogs() {
+            const container = document.getElementById('logContent');
+            container.innerHTML = `
+                <div class="loading-text">
+                    <div class="spinner"></div>
+                    <div>ログを読み込み中...</div>
+                </div>`;
+
+            try {
+                const response = await fetch('/api/get-logs');
+                if (!response.ok) throw new Error('Fetch failed');
+
+                const data = await response.json();
+                renderLogs(data.logs);
+
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                container.innerHTML = `
+                    <div style="color: #ef4444; text-align: center; padding: 20px;">
+                        ⚠️ ログの取得に失敗しました。
+                    </div>`;
+            }
+        }
+
+        function renderLogs(logs) {
+            const container = document.getElementById('logContent');
+
+            if (!logs || logs.length === 0) {
+                container.innerHTML = '<div class="empty-logs">ログがありません。</div>';
+                return;
+            }
+
+            let html = '<ul class="log-list">';
+            logs.forEach(log => {
+                // log 形式: "2026/02/25 15:06 Name1 Name2"
+                const parts = log.split(' ');
+                const date = parts[0];
+                const time = parts[1];
+                const names = parts.slice(2).join(' ');
+
+                html += `
+                    <li class="log-item">
+                        <div class="log-date">${date} ${time}</div>
+                        <div class="log-content">${names}</div>
+                    </li>`;
+            });
+            html += '</ul>';
+
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+
+</html>

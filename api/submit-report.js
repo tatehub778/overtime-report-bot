@@ -79,6 +79,36 @@ module.exports = async (req, res) => {
             }
         }
 
+        // 送信ログを記録 (3ヶ月保持)
+        try {
+            const reporters = [...new Set(reports.map(r => r.employee))].join(' ');
+            const logTimestamp = Date.now();
+            const logDateStr = new Date(logTimestamp).toLocaleString('ja-JP', {
+                timeZone: 'Asia/Tokyo',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).replace(/\//g, '/'); // 2026/02/25 15:06 形式
+
+            const logEntry = `${logDateStr} ${reporters}`;
+            const logKey = 'logs:submissions';
+
+            // Sorted Setに追加 (scoreはタイムスタンプ)
+            await kv.zadd(logKey, { score: logTimestamp, member: logEntry });
+
+            // 90日以上前のログを削除
+            const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
+            await kv.zremrangebyscore(logKey, 0, ninetyDaysAgo);
+
+            console.log('[SubmitReport] Recorded log entry:', logEntry);
+        } catch (logRecordError) {
+            console.error('❌ Failed to record submission log:', logRecordError);
+            // ログ記録エラーでも本体の処理は続行
+        }
+
+
         // LINE通知を送信
         console.log('[SubmitReport] Attempting to send LINE notification...');
         try {
