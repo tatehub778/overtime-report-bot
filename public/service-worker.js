@@ -17,6 +17,11 @@ self.addEventListener('install', (event) => {
 
 // フェッチ時 (Network First strategy)
 self.addEventListener('fetch', (event) => {
+    // GET以外（POST等）はキャッシュ処理の対象外（エラー回避）
+    if (event.request.method !== 'GET') {
+        return;
+    }
+
     event.respondWith(
         fetch(event.request)
             .then((response) => {

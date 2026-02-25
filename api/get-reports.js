@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
         // 送信ログの取得要求
         if (req.query.type === 'logs') {
             const logKey = 'logs:submissions';
-            const logs = await kv.zrevrange(logKey, 0, 99);
+            const logs = await kv.zrange(logKey, 0, 99, { rev: true });
             return res.status(200).json({
                 success: true,
                 logs: logs || []
